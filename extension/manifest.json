@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Navega • Monitor de recursos",
+  "version": "0.1.0",
+  "description": "Observa requisições da aba escolhida e organiza estimativas de consumo. Protótipo MAPE-K: etapa de Monitoramento.",
+  "minimum_chrome_version": "125",
+  "permissions": ["debugger", "sidePanel", "storage", "tabs"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Abrir Navega" },
+  "side_panel": { "default_path": "ui/panel.html" },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Navega • Monitor de recursos</title>
+    <link rel="icon" href="../icons/icon48.png" />
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#"
+        ><span class="brand-icon">n</span> navega<span class="brand-dot"
+          >.</span
+        ></a
+      ><span class="version">PROTÓTIPO 0.1</span>
+    </header>
+    <main>
+      <div class="intro">
+        <div>
+          <p class="eyebrow">MAPE-K / MONITORAMENTO</p>
+          <h1>O que a página carrega?</h1>
+          <p class="subtitle">Observe os recursos. Entenda o consumo.</p>
+        </div>
+        <span id="status" class="status" role="status"
+          >Pronto para iniciar</span
+        >
+      </div>
+      <section class="capture" aria-label="Controle de captura">
+        <div class="target">
+          <span class="target-icon" aria-hidden="true">↗</span>
+          <div>
+            <span class="label">ABA SELECIONADA</span
+            ><strong id="target">Selecionando página…</strong>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="start" class="primary">Iniciar captura</button
+          ><button id="stop" hidden>Encerrar captura</button
+          ><button
+            id="reload"
+            disabled
+            title="Recarrega a aba monitorada e mantém os registros da sessão"
+          >
+            ↻ Recarregar página</button
+          ><button id="select">Usar aba atual</button>
+        </div>
+        <p id="guidance" class="hint">
+          Inicie a captura e recarregue a página para observar o carregamento
+          completo.
+        </p>
+      </section>
+      <p id="error" class="message error" role="alert" hidden></p>
+      <p id="notice" class="message" role="status" hidden></p>
+      <section class="stats" aria-label="Métricas da sessão">
+        <article class="stat accent">
+          <span class="label">TRANSFERÊNCIA OBSERVADA</span
+          ><strong id="bytes">0 B</strong
+          ><span>Estimativa de consumo da sessão</span>
+        </article>
+        <article class="stat">
+          <span class="label">REQUISIÇÕES</span><strong id="count">0</strong
+          ><span id="pending">Nenhuma em andamento</span>
+        </article>
+        <article class="stat">
+          <span class="label">RITMO MÉDIO</span
+          ><strong id="rate">0 B/min</strong
+          ><span>Desde o início da captura</span>
+        </article>
+        <article class="stat">
+          <span class="label">RESPOSTAS COM ERRO</span
+          ><strong id="failures">0</strong
+          ><span id="cache">0 recursos em cache</span>
+        </article>
+      </section>
+      <section class="breakdown" aria-labelledby="breakdown-title">
+        <div class="section-heading">
+          <h2 id="breakdown-title">Consumo por recurso</h2>
+          <span>Bytes observados</span>
+        </div>
+        <div id="types" class="type-list">
+          <p class="muted">
+            A distribuição aparece assim que os recursos são carregados.
+          </p>
+        </div>
+      </section>
+      <section class="requests" aria-labelledby="requests-title">
+        <div class="section-heading">
+          <h2 id="requests-title">
+            Requisições da sessão
+            <span id="visible-count" class="count-badge">0</span>
+          </h2>
+          <div class="utilities">
+            <button id="export" disabled>↓ Exportar JSON</button
+            ><button id="clear" disabled>Limpar</button>
+          </div>
+        </div>
+        <div class="filters">
+          <label class="search"
+            ><span class="sr-only">Buscar por URL ou domínio</span
+            ><input
+              id="search"
+              aria-label="Buscar por URL ou domínio"
+              type="search"
+              placeholder="Buscar por URL ou domínio…" /></label
+          ><label
+            ><span class="sr-only">Tipo de recurso</span
+            ><select id="filter" aria-label="Tipo de recurso">
+              <option value="all">Todos os tipos</option>
+            </select></label
+          ><label
+            ><span class="sr-only">Ordenar requisições</span
+            ><select id="sort" aria-label="Ordenar requisições">
+              <option value="recent">Mais recentes</option>
+              <option value="size">Maior transferência</option>
+              <option value="duration">Maior duração</option>
+            </select></label
+          >
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Recurso / domínio</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Status</th>
+                <th scope="col">Transferência</th>
+                <th scope="col">Tempo</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="empty">
+          <span aria-hidden="true">⌁</span>
+          <h3>Sua próxima navegação, em detalhes.</h3>
+          <p>
+            Escolha uma página, inicie a captura e acompanhe<br />as requisições
+            chegando por aqui.
+          </p>
+        </div>
+        <div class="table-footer">
+          <span id="coverage">Aguardando uma sessão.</span
+          ><button id="more" hidden>Mostrar mais 100</button
+          ><a id="expand" href="panel.html" target="_blank"
+            >Abrir painel amplo ↗</a
+          >
+        </div>
+      </section>
+      <details class="explanation">
+        <summary>Como interpretar os números</summary>
+        <p>
+          Transferência é o total recebido informado pelo Chrome via CDP (inclui
+          cabeçalhos quando disponíveis). O valor final substitui os valores
+          parciais; não há dupla contagem. Cache pode registrar 0 B; “—”
+          significa tamanho indisponível. O ritmo é a média da sessão, não a
+          velocidade da conexão.
+        </p>
+        <p>
+          São observadas requisições HTTP(S) iniciadas após a captura, incluindo
+          iframes e workers instrumentados. Uploads, frames WebSocket, tráfego
+          de outras abas e tráfego interno de service workers não estão
+          incluídos. Os valores não equivalem à cobrança da operadora.
+        </p>
+        <p>
+          O Chrome exibe um aviso de depuração durante a captura. Abrir o
+          DevTools ou cancelar esse aviso pode desconectar o sensor. URLs são
+          registradas sem parâmetros, fragmentos ou credenciais; caminhos ainda
+          podem conter informações pessoais. Dados ficam na memória da sessão do
+          navegador, sem envio a servidores.
+        </p>
+      </details>
+      <footer class="architecture">
+        <div><strong>M</strong><span>Monitoramento ativo</span></div>
+        <span class="connector">→</span>
+        <div class="future"><strong>A</strong><span>Análise</span></div>
+        <span class="connector">→</span>
+        <div class="future"><strong>P</strong><span>Planejamento</span></div>
+        <span class="connector">→</span>
+        <div class="future"><strong>E</strong><span>Execução</span></div>
+        <p>
+          Primeira entrega · observação de recursos, sem adaptação automática
+        </p>
+      </footer>
+    </main>
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>
