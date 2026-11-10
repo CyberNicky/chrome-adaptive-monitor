@@ -88,4 +88,10 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.2.0** acompanha as abas automaticamente depois do primeiro clique em **Iniciar captura**. Sessões da versão anterior são preservadas como encerradas; inicie uma nova para ativar o novo comportamento.
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.3.0** acompanha as abas automaticamente depois do primeiro clique em **Iniciar captura** e apresenta o ranking de consumo por aba.
+
+## Comparar o consumo das abas
+
+A seção **Consumo por aba** ordena as abas pelo total de bytes observados e destaca a maior transferência positiva. Empates no maior valor são sinalizados; sem bytes conhecidos, nenhuma aba é declarada vencedora. Cada linha mostra quantidade de requisições, pendências, tamanhos desconhecidos e participação no total observado. O botão **Ver requisições** seleciona a aba e limpa os filtros de busca/tipo para mostrar seus recursos. Os subtotais também entram no JSON em `metrics.byTab`.
+
+O ranking, os cartões e o gráfico por recurso mostram o acumulado da sessão inteira, independente dos filtros da tabela. O subtotal de uma aba inclui todas as navegações observadas nela; o endereço exibido identifica o último site visitado, não uma soma exclusiva daquele site. Somente os períodos monitorados são comparados, sem normalização por tempo. Recursos com tamanho desconhecido ficam fora da soma; uma aba com todas as requisições sem tamanho exibe **—**, e uma aba sem requisições ou apenas com transferência conhecida de zero exibe **0 B**.

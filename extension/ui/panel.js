@@ -165,10 +165,101 @@ function render() {
   );
   if ([...$("tab-filter").options].some((option) => option.value === chosen))
     $("tab-filter").value = chosen;
+  renderTabRanking();
   renderRows();
   $("coverage").textContent = session
     ? `${session.tabs?.length ?? 1} abas visitadas · ${session.requests.length} registros · ${m.unknownSizes} sem tamanho · limite de 3.000${session.ignored ? ` · ${session.ignored} não registrados` : ""}`
     : "Aguardando uma sessão.";
+}
+
+function renderTabRanking() {
+  const ranking = state.metrics.byTab ?? [];
+  const total = state.metrics.transferredBytes ?? 0;
+  const maximum = ranking[0]?.bytes ?? 0;
+  const tied =
+    maximum > 0 && ranking.filter((tab) => tab.bytes === maximum).length > 1;
+  $("tab-ranking-empty").hidden = ranking.length > 0;
+  $("tab-ranking").replaceChildren(
+    ...ranking.map((tab, index) => {
+      const item = text("li", "", "tab-ranking-item");
+      item.dataset.tabId = tab.tabId ?? "unknown";
+      item.dataset.bytes = String(tab.bytes);
+      const position = text(
+        "span",
+        String(index + 1).padStart(2, "0"),
+        "tab-position",
+      );
+      const details = text("div", "", "tab-details");
+      const title = text("div", "", "tab-heading");
+      title.append(
+        text(
+          "strong",
+          tab.tabId === null ? "Aba sem identificação" : `Aba ${tab.tabNumber}`,
+        ),
+      );
+      if (maximum > 0 && tab.bytes === maximum)
+        title.append(
+          text(
+            "span",
+            tied ? "Maior consumo · empate" : "Maior consumo",
+            "tab-leader",
+          ),
+        );
+      let domain = "Endereço indisponível";
+      try {
+        domain = new URL(tab.url).hostname;
+      } catch {
+        /* Older sessions may not include a URL. */
+      }
+      const address = text("span", `Último site: ${domain}`, "tab-domain");
+      address.title = tab.url ?? "";
+      details.append(
+        title,
+        address,
+        text(
+          "span",
+          `${tab.requests} requisições${tab.pending ? ` · ${tab.pending} em andamento` : ""}${tab.unknownSizes ? ` · ${tab.unknownSizes} sem tamanho` : ""}`,
+          "tab-meta",
+        ),
+      );
+      const amount = text("div", "", "tab-amount");
+      const unknown = tab.requests > 0 && tab.unknownSizes === tab.requests;
+      amount.append(text("strong", formatBytes(unknown ? null : tab.bytes)));
+      amount.append(
+        text(
+          "span",
+          unknown
+            ? "Tamanho indisponível"
+            : total > 0
+              ? `${((tab.bytes / total) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da sessão`
+              : "Sem bytes observados",
+          "tab-meta",
+        ),
+      );
+      if (tab.tabId !== null) {
+        const button = text("button", "Ver requisições", "tab-open");
+        button.setAttribute(
+          "aria-label",
+          `Ver requisições da Aba ${tab.tabNumber}`,
+        );
+        button.addEventListener("click", () => {
+          $("tab-filter").value = String(tab.tabId);
+          $("search").value = "";
+          $("filter").value = "all";
+          limit = 100;
+          renderRows();
+          $("requests-title").scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+          $("tab-filter").focus({ preventScroll: true });
+        });
+        amount.append(button);
+      }
+      item.append(position, details, amount);
+      return item;
+    }),
+  );
 }
 
 function renderRows() {

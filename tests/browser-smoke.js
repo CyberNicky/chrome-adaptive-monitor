@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { once } from "node:events";
@@ -174,6 +174,12 @@ try {
   const download = await downloadPromise;
   await mkdir("artifacts", { recursive: true });
   await download.saveAs("artifacts/session.json");
+  const exported = JSON.parse(await readFile("artifacts/session.json", "utf8"));
+  assert.equal(
+    exported.metrics.byTab.reduce((sum, tab) => sum + tab.bytes, 0),
+    exported.metrics.transferredBytes,
+    "exportação inclui totais por aba",
+  );
   await panel.screenshot({
     path: "artifacts/painel-desktop.png",
     fullPage: true,
@@ -225,7 +231,70 @@ try {
       ),
     "captura da segunda aba",
   );
+  await second.evaluate(async () => {
+    for (let i = 0; i < 3; i++)
+      await (await fetch(`/image.svg?size=300000&ranking=${i}`)).arrayBuffer();
+  });
+  await until(async () => {
+    const state = await getState();
+    return (
+      state.metrics.byTab[0].tabId === secondId && state.metrics.pending === 0
+    );
+  }, "segunda aba assume o maior consumo");
   const combined = await getState();
+  for (const tab of combined.metrics.byTab) {
+    assert.equal(
+      tab.bytes,
+      combined.session.requests
+        .filter((row) => row.tabId === tab.tabId)
+        .reduce((sum, row) => sum + (row.transferredBytes ?? 0), 0),
+      "subtotal corresponde às requisições da aba",
+    );
+  }
+  assert.equal(
+    combined.metrics.byTab.reduce((sum, tab) => sum + tab.bytes, 0),
+    combined.metrics.transferredBytes,
+    "subtotais fecham com total global",
+  );
+  await until(
+    async () =>
+      (await panel
+        .locator("#tab-ranking li")
+        .first()
+        .getAttribute("data-tab-id")) === String(secondId),
+    "ranking atualiza ao vivo",
+  );
+  assert.equal(
+    await panel
+      .locator("#tab-ranking li")
+      .first()
+      .locator(".tab-leader")
+      .innerText(),
+    "Maior consumo",
+  );
+  await panel
+    .getByRole("button", { name: "Ver requisições da Aba 2", exact: true })
+    .click();
+  assert.equal(
+    await panel.getByLabel("Aba de origem", { exact: true }).inputValue(),
+    String(secondId),
+    "atalho do ranking seleciona a aba correta",
+  );
+  await panel.setViewportSize({ width: 1280, height: 1100 });
+  await panel.screenshot({
+    path: "artifacts/ranking-abas.png",
+    fullPage: true,
+  });
+  await panel.setViewportSize({ width: 420, height: 1000 });
+  assert.equal(
+    await panel.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+    "ranking responsivo sem overflow",
+  );
+  await panel.locator("#tabs-title").scrollIntoViewIfNeeded();
+  await panel.screenshot({ path: "artifacts/ranking-lateral.png" });
   assert.equal(
     combined.session.startedAt,
     firstSession.session.startedAt,

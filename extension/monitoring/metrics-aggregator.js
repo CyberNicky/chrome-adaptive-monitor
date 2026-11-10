@@ -11,11 +11,34 @@ export function aggregateMetrics(session, now = Date.now()) {
     cached: 0,
     byType: {},
     byDomain: {},
+    byTab: [],
     bytesPerMinute: 0,
   };
+  const tabs = new Map();
+  const addTab = (tabId, url) => {
+    if (!tabs.has(tabId))
+      tabs.set(tabId, {
+        tabId,
+        url: url ?? null,
+        tabNumber: tabs.size + 1,
+        requests: 0,
+        bytes: 0,
+        unknownSizes: 0,
+        pending: 0,
+      });
+    return tabs.get(tabId);
+  };
+  for (const tab of session?.tabs ?? []) addTab(tab.id, tab.url);
   for (const row of session?.requests ?? []) {
     const size = estimateConsumption(row);
     const bytes = size.transferredBytes ?? 0;
+    // Sessions created before tab attribution belong to their original target.
+    const tabId = row.tabId ?? session.tabs?.[0]?.id ?? session.tabId ?? null;
+    const tab = addTab(tabId, row.pageUrl ?? session.pageUrl);
+    tab.requests++;
+    tab.bytes += bytes;
+    tab.unknownSizes += Number(size.transferredBytes === null);
+    tab.pending += Number(row.state === "pending");
     metrics.requests++;
     metrics.transferredBytes += bytes;
     metrics.decodedBytes += size.decodedBytes ?? 0;
@@ -39,6 +62,9 @@ export function aggregateMetrics(session, now = Date.now()) {
       group[key].bytes += bytes;
     }
   }
+  metrics.byTab = [...tabs.values()].sort(
+    (a, b) => b.bytes - a.bytes || a.tabNumber - b.tabNumber,
+  );
   if (session) {
     const elapsed = Math.max(
       1,

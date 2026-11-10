@@ -208,3 +208,99 @@ test("IDs iguais em abas diferentes não misturam bytes nem conclusão", () => {
   assert.equal(aggregateMetrics(s).transferredBytes, 100);
   assert.deepEqual(s.active, {});
 });
+
+test("ranking soma consumo por aba, separa abas do mesmo site e preserva o total da sessão", () => {
+  const s = createSession({ id: 10, url: "https://example.com" });
+  s.tabs.push(
+    { id: 20, url: "https://example.com/other" },
+    { id: 30, url: "https://empty.example" },
+  );
+  const row = (tabId, transferredBytes, state = "complete") => ({
+    tabId,
+    type: "image",
+    domain: "cdn.example",
+    transferredBytes,
+    decodedBytes: null,
+    state,
+  });
+  s.requests = [
+    row(10, 100),
+    row(20, 200),
+    row(10, 50, "interrupted"),
+    row(20, 0),
+    row(20, null),
+  ];
+  const metrics = aggregateMetrics(s);
+  assert.deepEqual(
+    metrics.byTab.map((t) => t.tabId),
+    [20, 10, 30],
+  );
+  assert.deepEqual(
+    metrics.byTab.map((t) => t.bytes),
+    [200, 150, 0],
+  );
+  assert.equal(metrics.byTab[0].requests, 3);
+  assert.equal(metrics.byTab[0].unknownSizes, 1);
+  assert.equal(metrics.byTab[0].tabNumber, 2);
+  assert.equal(
+    metrics.byTab.reduce((sum, t) => sum + t.bytes, 0),
+    metrics.transferredBytes,
+  );
+  assert.equal(
+    metrics.byTab.reduce((sum, t) => sum + t.requests, 0),
+    metrics.requests,
+  );
+});
+
+test("ranking trata tamanho desconhecido e empates sem inventar bytes", () => {
+  const s = createSession({ id: 10, url: "https://example.com" });
+  s.tabs.push({ id: 20, url: "https://other.example" });
+  s.recording = true;
+  collectEvent(s, "Network.requestWillBeSent", {
+    requestId: "1",
+    request: { url: "https://example.com/resource", method: "GET" },
+    timestamp: 1,
+    wallTime: 1,
+  });
+  let metrics = aggregateMetrics(s);
+  assert.equal(metrics.byTab[0].unknownSizes, 1);
+  assert.equal(metrics.byTab[0].pending, 1);
+  assert.equal(metrics.byTab[0].bytes, 0);
+  assert.deepEqual(
+    metrics.byTab.map((t) => t.tabId),
+    [10, 20],
+  );
+  collectEvent(s, "Network.dataReceived", {
+    requestId: "1",
+    dataLength: 1000,
+    encodedDataLength: 500,
+  });
+  collectEvent(s, "Network.loadingFinished", {
+    requestId: "1",
+    timestamp: 2,
+    encodedDataLength: 550,
+  });
+  metrics = aggregateMetrics(s);
+  assert.equal(
+    metrics.byTab[0].bytes,
+    550,
+    "total final substitui bytes parciais",
+  );
+  assert.equal(metrics.byTab[0].unknownSizes, 0);
+  assert.equal(metrics.byTab[0].pending, 0);
+});
+
+test("ranking inclui registros antigos sem tabId na aba original e aceita sessão vazia", () => {
+  assert.deepEqual(aggregateMetrics(null).byTab, []);
+  const s = createSession({ id: 10, url: "https://example.com" });
+  s.requests = [
+    {
+      type: "image",
+      domain: "example.com",
+      transferredBytes: 42,
+      state: "complete",
+    },
+  ];
+  assert.equal(aggregateMetrics(s).byTab[0].tabId, 10);
+  assert.equal(aggregateMetrics(s).byTab[0].bytes, 42);
+});
