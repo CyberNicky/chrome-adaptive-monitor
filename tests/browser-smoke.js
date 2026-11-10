@@ -196,6 +196,102 @@ try {
       s.metrics.pending === 0
     );
   }, "navegação mantém a captura e o histórico");
+  // Real tab activation events must move the sensor without restarting the session.
+  const firstSession = await getState();
+  const second = await context.newPage();
+  await second.goto(`${base}/?second=1`);
+  const secondId = await worker.evaluate(
+    async (url) => (await chrome.tabs.query({})).find((t) => t.url === url).id,
+    `${base}/?second=1`,
+  );
+  const activate = async (id) =>
+    worker.evaluate(
+      async (tabId) => chrome.tabs.update(tabId, { active: true }),
+      id,
+    );
+  await activate(secondId);
+  await until(
+    async () => (await getState()).session.tabId === secondId,
+    "troca automática para segunda aba",
+  );
+  await second.reload();
+  await until(
+    async () =>
+      (await getState()).session.requests.some(
+        (r) =>
+          r.tabId === secondId &&
+          r.url.endsWith("/api/data") &&
+          r.state === "complete",
+      ),
+    "captura da segunda aba",
+  );
+  const combined = await getState();
+  assert.equal(
+    combined.session.startedAt,
+    firstSession.session.startedAt,
+    "mesma sessão ao trocar abas",
+  );
+  assert.ok(
+    combined.session.requests.some((r) => r.tabId === tabId),
+    "histórico da primeira aba preservado",
+  );
+  await panel
+    .getByLabel("Aba de origem", { exact: true })
+    .selectOption(String(secondId));
+  assert.ok(
+    (await panel.locator("#rows tr").count()) > 0,
+    "filtro da segunda aba",
+  );
+  const inactiveCount = (await getState()).session.requests.length;
+  await page.evaluate(async () =>
+    (await fetch("/api/data?background=1")).text(),
+  );
+  assert.equal(
+    (await getState()).session.requests.length,
+    inactiveCount,
+    "aba inativa não continua capturando",
+  );
+  await activate(tabId);
+  await until(
+    async () => (await getState()).session.tabId === tabId,
+    "retorno automático à primeira aba",
+  );
+  await panel.getByLabel("Aba de origem", { exact: true }).selectOption("all");
+  await worker.evaluate(
+    async (ids) => {
+      for (const id of ids) await chrome.tabs.update(id, { active: true });
+    },
+    [secondId, tabId, secondId, tabId],
+  );
+  await until(
+    async () => (await getState()).session.tabId === tabId,
+    "trocas rápidas mantêm o alvo final",
+  );
+  const internal = await context.newPage();
+  const internalId = await worker.evaluate(
+    async () =>
+      (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]
+        .id,
+  );
+  await activate(internalId);
+  await until(
+    async () =>
+      (await getState()).session.recording &&
+      (await getState()).session.tabId === null,
+    "página interna aguarda sem encerrar a sessão",
+  );
+  await internal.goto(`${base}/?resumed=1`);
+  await until(
+    async () => (await getState()).session.tabId === internalId,
+    "navegação de aba vazia retoma captura automaticamente",
+  );
+  await internal.close();
+  await activate(tabId);
+  await until(
+    async () => (await getState()).session.tabId === tabId,
+    "continua depois de fechar aba",
+  );
+  await second.close();
   await panel
     .getByRole("button", { name: "Encerrar captura", exact: true })
     .click();
@@ -224,8 +320,17 @@ try {
   );
   await page.close();
   await until(
+    async () =>
+      (await getState()).session.recording &&
+      (await getState()).session.tabId !== tabId,
+    "fechamento da aba mantém captura automática aguardando outra página",
+  );
+  await panel
+    .getByRole("button", { name: "Encerrar captura", exact: true })
+    .click();
+  await until(
     async () => !(await getState()).session.recording,
-    "fechamento da aba encerra captura",
+    "encerramento da sessão automática",
   );
   await panel.getByRole("button", { name: "Limpar", exact: true }).click();
   assert.equal((await getState()).session, null, "limpeza da sessão");

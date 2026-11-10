@@ -13,7 +13,7 @@
         ><span class="brand-icon">n</span> navega<span class="brand-dot"
           >.</span
         ></a
-      ><span class="version">PROTÓTIPO 0.1</span>
+      ><span class="version">PROTÓTIPO 0.2</span>
     </header>
     <main>
       <div class="intro">
@@ -42,8 +42,8 @@
             disabled
             title="Recarrega a aba monitorada e mantém os registros da sessão"
           >
-            ↻ Recarregar página</button
-          ><button id="select">Usar aba atual</button>
+            ↻ Recarregar página
+          </button>
         </div>
         <p id="guidance" class="hint">
           Inicie a captura e recarregue a página para observar o carregamento
@@ -96,6 +96,12 @@
           </div>
         </div>
         <div class="filters">
+          <label
+            ><span class="sr-only">Aba de origem</span
+            ><select id="tab-filter" aria-label="Aba de origem">
+              <option value="all">Todas as abas</option>
+            </select></label
+          >
           <label class="search"
             ><span class="sr-only">Buscar por URL ou domínio</span
             ><input
@@ -159,7 +165,7 @@
         <p>
           São observadas requisições HTTP(S) iniciadas após a captura, incluindo
           iframes e workers instrumentados. Uploads, frames WebSocket, tráfego
-          de outras abas e tráfego interno de service workers não estão
+          das abas inativas e tráfego interno de service workers não estão
           incluídos. Os valores não equivalem à cobrança da operadora.
         </p>
         <p>

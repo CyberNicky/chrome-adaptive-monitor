@@ -20,7 +20,7 @@ Não há seta de atuação sobre o Chrome nesta versão. A instrumentação do s
 
 | Componente da figura    | Arquivo                                         | Responsabilidade atual                                                          |
 | ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| Sensor                  | `extension/sensors/chrome-network-sensor.js`    | Conexão explícita à aba; habilita Network e contextos filhos                    |
+| Sensor                  | `extension/sensors/chrome-network-sensor.js`    | Início explícito da sessão; acompanha a aba ativa e seus contextos filhos       |
 | Coletor                 | `extension/monitoring/request-collector.js`     | Normaliza eventos, separa requisições por contexto e preserva redirecionamentos |
 | Classificador           | `extension/monitoring/resource-classifier.js`   | Usa tipo do Chrome e MIME; diferencia áudio/vídeo quando possível               |
 | Estimador               | `extension/monitoring/consumption-estimator.js` | Interpreta tamanho conhecido, parcial, cache e indisponibilidade                |
@@ -48,3 +48,11 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 ![Figura fornecida pela equipe](arquitetura-referencia.png)
 
 Análise, Planejamento, Execução e Efetor permanecem como evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md). Evitamos criar implementações vazias que poderiam ser confundidas com funcionalidades prontas.
+
+## Troca automática de abas (0.2.0)
+
+O controlador observa `tabs.onActivated`, `tabs.onUpdated` e `windows.onFocusChanged`. A captura continua sendo iniciada e encerrada explicitamente pelo usuário; durante a sessão, trocar de aba não exige novos comandos. As transições e os comandos são serializados para evitar duas conexões concorrentes.
+
+Antes de desconectar o alvo anterior, seu identificador é retirado do estado de captura. Pendências são marcadas como interrompidas; registros concluídos e métricas permanecem. O novo alvo é conectado automaticamente quando sua URL é HTTP(S). Cada registro carrega `tabId` e `pageUrl`, e as chaves internas isolam aba, contexto CDP e requisição. Isso impede misturar IDs iguais vindos de abas diferentes.
+
+Páginas internas/vazias deixam a sessão em espera, e a navegação posterior para HTTP(S) retoma a conexão. Abrir o painel da própria extensão preserva o último alvo, para permitir acompanhar a página no painel amplo. Fechar uma aba não encerra a sessão. Cancelar a depuração pelo Chrome encerra a captura, respeitando a escolha do usuário. O histórico acumula as abas observadas; a observação em si continua limitada a um alvo por vez.

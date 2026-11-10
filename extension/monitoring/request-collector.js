@@ -5,9 +5,10 @@ export const MAX_REQUESTS = 3000;
 
 export function createSession(tab, now = Date.now()) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     tabId: tab.id,
     pageUrl: sanitizeUrl(tab.url),
+    tabs: [{ id: tab.id, url: sanitizeUrl(tab.url) }],
     startedAt: now,
     stoppedAt: null,
     recording: false,
@@ -40,14 +41,21 @@ function finish(row, timestamp, state) {
 }
 
 // Sensor-independent reducer: also used by deterministic tests with CDP fixtures.
-export function collectEvent(session, method, params, sourceId = "root") {
+export function collectEvent(
+  session,
+  method,
+  params,
+  sourceId = "root",
+  tabId = session.tabId,
+) {
   if (!session.recording) return false;
-  let key = `${sourceId}:${params.requestId}`;
+  const prefix = `${tabId}/`;
+  let key = `${prefix}${sourceId}:${params.requestId}`;
   // A navigation may move a request from the parent target into an OOPIF target.
   // Adopt only an unambiguous ID; otherwise keep target isolation intact.
   if (method !== "Network.requestWillBeSent" && !session.active[key]) {
-    const candidates = Object.keys(session.active).filter((k) =>
-      k.endsWith(`:${params.requestId}`),
+    const candidates = Object.keys(session.active).filter(
+      (k) => k.startsWith(prefix) && k.endsWith(`:${params.requestId}`),
     );
     if (candidates.length === 1) key = candidates[0];
   }
@@ -67,6 +75,8 @@ export function collectEvent(session, method, params, sourceId = "root") {
     }
     row = {
       id: ++session.sequence,
+      tabId,
+      pageUrl: sanitizeUrl(params.documentURL) ?? session.pageUrl,
       url,
       method: params.request.method,
       domain: new URL(url).hostname,
@@ -122,6 +132,22 @@ export function collectEvent(session, method, params, sourceId = "root") {
       return false;
   }
   return true;
+}
+
+export function interruptTabRequests(session, tabId) {
+  for (const row of session.requests) {
+    if (
+      row.state === "pending" &&
+      (tabId === undefined || row.tabId === tabId)
+    ) {
+      row.state = "interrupted";
+      row.error = "Observação desta aba interrompida antes da conclusão";
+    }
+  }
+  for (const key of Object.keys(session.active)) {
+    if (tabId === undefined || key.startsWith(`${tabId}/`))
+      delete session.active[key];
+  }
 }
 
 export function stopSession(session, notice = "", now = Date.now()) {

@@ -84,25 +84,28 @@ function renderControls() {
   $("start").disabled = busy || !targetTab;
   $("start").textContent = session ? "Iniciar nova sessão" : "Iniciar captura";
   $("stop").disabled = busy;
-  $("reload").disabled = busy || !recording;
-  $("select").disabled = busy || recording;
+  $("reload").disabled = busy || !recording || session.tabId === null;
   $("export").disabled = !session?.requests.length;
   $("clear").disabled = busy || recording || !session;
   $("target").textContent =
     (recording ? session.pageUrl : (targetTab?.url ?? session?.pageUrl)) ??
-    "Abra uma página HTTP(S) e clique em “Usar aba atual”.";
+    (recording
+      ? "Aguardando uma aba HTTP(S)…"
+      : "Abra uma página HTTP(S) para começar.");
   $("target").title = $("target").textContent;
   document.querySelector(".target .label").textContent = recording
-    ? "ABA DA SESSÃO"
+    ? "ABA MONITORADA AUTOMATICAMENTE"
     : "ABA SELECIONADA";
   $("status").textContent = recording
-    ? "Capturando ao vivo"
+    ? session.tabId === null
+      ? "Aguardando página"
+      : "Captura automática ativa"
     : session
       ? "Captura encerrada"
       : "Pronto para iniciar";
   $("status").classList.toggle("live", recording);
   $("guidance").textContent = recording
-    ? "A captura continua ao navegar nesta aba. Recarregar mantém os registros; encerrar preserva a sessão."
+    ? "Troque de aba: a captura acompanha você automaticamente. O histórico permanece nesta sessão; só a aba ativa é observada. Recursos já carregados exigem recarregar."
     : "Inicie a captura e recarregue a página para observar o carregamento completo. Uma nova sessão substitui os registros anteriores.";
   $("notice").hidden = !session?.notice;
   $("notice").textContent = session?.notice ?? "";
@@ -148,17 +151,33 @@ function render() {
         "muted",
       ),
     );
+  const chosen = $("tab-filter").value;
+  const tabs = session?.tabs ?? [];
+  $("tab-filter").replaceChildren(
+    new Option("Todas as abas", "all"),
+    ...tabs.map(
+      (tab, index) =>
+        new Option(
+          `Aba ${index + 1} · ${new URL(tab.url).hostname}`,
+          String(tab.id),
+        ),
+    ),
+  );
+  if ([...$("tab-filter").options].some((option) => option.value === chosen))
+    $("tab-filter").value = chosen;
   renderRows();
   $("coverage").textContent = session
-    ? `${session.requests.length} registros · ${m.unknownSizes} sem tamanho · limite de 3.000${session.ignored ? ` · ${session.ignored} não registrados` : ""}`
+    ? `${session.tabs?.length ?? 1} abas visitadas · ${session.requests.length} registros · ${m.unknownSizes} sem tamanho · limite de 3.000${session.ignored ? ` · ${session.ignored} não registrados` : ""}`
     : "Aguardando uma sessão.";
 }
 
 function renderRows() {
   const query = $("search").value.toLowerCase();
   const kind = $("filter").value;
+  const tab = $("tab-filter").value;
   const rows = (state.session?.requests ?? []).filter(
     (row) =>
+      (tab === "all" || String(row.tabId) === tab) &&
       (kind === "all" || row.type === kind) &&
       row.url.toLowerCase().includes(query),
   );
@@ -192,7 +211,11 @@ function renderRows() {
       }
       resource.append(
         text("span", name, "resource-name"),
-        text("span", `${row.method} · ${row.domain}`, "resource-domain"),
+        text(
+          "span",
+          `${row.method} · ${row.domain} · Aba ${Math.max(0, state.session.tabs?.findIndex((tab) => tab.id === row.tabId) ?? 0) + 1}`,
+          "resource-domain",
+        ),
       );
       resource.title = row.url;
       const type = document.createElement("td");
@@ -246,9 +269,8 @@ $("start").addEventListener("click", () =>
 );
 $("stop").addEventListener("click", () => action(() => send("STOP")));
 $("reload").addEventListener("click", () => action(() => send("RELOAD")));
-$("select").addEventListener("click", () => action(selectTarget));
 $("clear").addEventListener("click", () => action(() => send("CLEAR")));
-for (const id of ["search", "filter", "sort"])
+for (const id of ["search", "filter", "sort", "tab-filter"])
   $(id).addEventListener(id === "search" ? "input" : "change", () => {
     limit = 100;
     renderRows();
@@ -312,10 +334,11 @@ chrome.tabs.onActivated.addListener(() => {
 const requestedId = Number(new URLSearchParams(location.search).get("tabId"));
 await action(async () => {
   if (requestedId) {
-    const tab = await chrome.tabs.get(requestedId);
-    targetTab = sanitizeUrl(tab.url)
-      ? { id: tab.id, url: sanitizeUrl(tab.url) }
-      : null;
+    const tab = await chrome.tabs.get(requestedId).catch(() => null);
+    targetTab =
+      tab && sanitizeUrl(tab.url)
+        ? { id: tab.id, url: sanitizeUrl(tab.url) }
+        : null;
   } else await selectTarget();
   await send("GET_STATE");
 });

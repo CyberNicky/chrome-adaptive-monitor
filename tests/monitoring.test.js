@@ -5,6 +5,7 @@ import {
   collectEvent,
   stopSession,
   MAX_REQUESTS,
+  interruptTabRequests,
 } from "../extension/monitoring/request-collector.js";
 import { aggregateMetrics } from "../extension/monitoring/metrics-aggregator.js";
 import { sanitizeUrl } from "../extension/monitoring/consumption-estimator.js";
@@ -179,4 +180,31 @@ test("limite explícito evita crescimento ilimitado sem perder atualizações em
     encodedDataLength: 12,
   });
   assert.equal(s.requests[0].transferredBytes, 12);
+});
+
+test("IDs iguais em abas diferentes não misturam bytes nem conclusão", () => {
+  const s = createSession({ id: 10, url: "https://example.com" });
+  s.recording = true;
+  const start = {
+    requestId: "same",
+    request: { url: "https://example.com/data", method: "GET" },
+    timestamp: 1,
+    wallTime: 1,
+  };
+  collectEvent(s, "Network.requestWillBeSent", start, "root", 10);
+  collectEvent(s, "Network.requestWillBeSent", start, "root", 20);
+  collectEvent(
+    s,
+    "Network.loadingFinished",
+    { requestId: "same", timestamp: 2, encodedDataLength: 100 },
+    "iframe",
+    10,
+  );
+  assert.equal(s.requests[0].transferredBytes, 100);
+  assert.equal(s.requests[1].state, "pending");
+  interruptTabRequests(s, 20);
+  assert.equal(s.requests[1].state, "interrupted");
+  assert.equal(s.recording, true);
+  assert.equal(aggregateMetrics(s).transferredBytes, 100);
+  assert.deepEqual(s.active, {});
 });
