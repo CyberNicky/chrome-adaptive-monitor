@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Navega • Laboratório de recursos</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header><b>navega.</b><span>LABORATÓRIO LOCAL</span></header>
+    <main>
+      <p class="eyebrow">UMA PÁGINA, VÁRIOS RECURSOS</p>
+      <h1>Uma navegação que<br />você pode observar.</h1>
+      <p class="intro">
+        Este laboratório gera requisições reais no seu computador.<br />Abra a
+        extensão, inicie a captura e recarregue esta página.
+      </p>
+      <section class="landscape">
+        <img
+          src="/image.svg?size=24000"
+          alt="Ilustração de uma paisagem com montanhas e sol"
+        />
+        <div>
+          <span>CARREGAMENTO INICIAL</span>
+          <h2>HTML, CSS, JavaScript,<br />imagem e dados.</h2>
+          <p>
+            Os primeiros recursos já estão aqui.<br />Agora experimente carregar
+            outros.
+          </p>
+        </div>
+      </section>
+      <h2>Explore o monitoramento</h2>
+      <div class="experiments">
+        <article>
+          <span class="number">01 / IMAGENS</span>
+          <h3>Mais conteúdo, mais dados</h3>
+          <p>
+            Carregue três SVGs de 24, 80 e 160 kB. O preenchimento dos arquivos
+            é intencional.
+          </p>
+          <button id="images">Carregar 3 imagens</button>
+        </article>
+        <article>
+          <span class="number">02 / FETCH</span>
+          <h3>Além do que você vê</h3>
+          <p>
+            Busque JSON, uma resposta comprimida e uma resposta enviada em
+            partes.
+          </p>
+          <button id="data">Buscar dados</button>
+        </article>
+        <article>
+          <span class="number">03 / FALHAS E CACHE</span>
+          <h3>Nem tudo é um download</h3>
+          <p>
+            Observe um erro HTTP 404, um redirecionamento e um recurso que pode
+            vir do cache.
+          </p>
+          <button id="error">Simular erro</button
+          ><button id="cache">Repetir recurso em cache</button>
+        </article>
+        <article>
+          <span class="number">04 / CONTEXTOS</span>
+          <h3>Uma página dentro da outra</h3>
+          <p>
+            Crie um iframe em outro site local (localhost) e um worker para
+            testar a cobertura.
+          </p>
+          <button id="contexts">Carregar iframe e worker</button>
+        </article>
+      </div>
+      <section class="media">
+        <div>
+          <span class="number">05 / ÁUDIO E VÍDEO</span>
+          <h2>Mídia também é recurso.</h2>
+          <p>
+            Use o botão para solicitar arquivos locais válidos.<br />A
+            reprodução é opcional, sem autoplay.
+          </p>
+          <button id="media">Carregar mídia</button>
+        </div>
+        <div>
+          <audio
+            id="audio"
+            controls
+            preload="none"
+            aria-label="Tom de áudio de demonstração"
+          ></audio
+          ><video
+            id="video"
+            controls
+            preload="none"
+            aria-label="Vídeo de demonstração"
+            width="260"
+          ></video>
+        </div>
+      </section>
+      <p id="result" role="status">Pronto para experimentar.</p>
+      <div id="gallery"></div>
+      <div id="frames"></div>
+      <footer>
+        Etapa inicial do MAPE-K · Apenas monitoramento · Nenhuma regra de
+        bloqueio
+      </footer>
+    </main>
+  </body>
+</html>
