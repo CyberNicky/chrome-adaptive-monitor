@@ -13,8 +13,108 @@
         ><span class="brand-icon">n</span> navega<span class="brand-dot"
           >.</span
         ></a
-      ><span class="version">PROTÓTIPO 0.3</span>
+      ><div class="topbar-actions">
+        <span
+          id="plan-indicator"
+          class="header-indicator"
+          role="status"
+          aria-label="Plano total ainda não configurado"
+          title="Plano total ainda não configurado"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4 7h16v12H4zM7 4h10v3H7z" />
+            <path d="M8 11h8M8 15h5" />
+          </svg>
+          <strong id="plan-total">—</strong>
+        </span>
+        <span
+          id="mode-indicator"
+          class="header-indicator mode-indicator"
+          role="status"
+          aria-label="Modo de economia atual: Normal"
+          title="Modo de economia atual: Normal"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />
+            <path d="m12 12 4-3M7 15h10" />
+          </svg>
+          <strong>Normal</strong>
+        </span>
+        <button
+          id="open-settings"
+          class="settings-button"
+          type="button"
+          aria-label="Configurar orçamento"
+          title="Configurar orçamento"
+        >
+          <span aria-hidden="true">⚙</span>
+        </button>
+        <span class="version">PROTÓTIPO 0.3</span>
+      </div>
     </header>
+    <dialog id="settings-dialog" class="settings-dialog">
+      <form id="settings-form" class="settings-form">
+        <div class="settings-heading">
+          <div>
+            <p class="eyebrow">CONHECIMENTO / ORÇAMENTO</p>
+            <h2>Configurar orçamento</h2>
+            <p>Registre o plano e a franquia total disponível.</p>
+          </div>
+          <button
+            id="close-settings"
+            class="dialog-close"
+            type="button"
+            aria-label="Fechar configurações"
+          >
+            ×
+          </button>
+        </div>
+        <label class="form-field" for="plan-name">
+          <span>Plano</span>
+          <input
+            id="plan-name"
+            name="planName"
+            type="text"
+            maxlength="80"
+            placeholder="Ex.: Plano móvel"
+            autocomplete="off"
+            required
+          />
+        </label>
+        <fieldset class="form-field">
+          <legend>Franquia de dados</legend>
+          <div class="allowance-fields">
+            <input
+              id="data-amount"
+              name="dataAmount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              inputmode="decimal"
+              aria-label="Quantidade de dados"
+              placeholder="20"
+              required
+            />
+            <select id="data-unit" name="dataUnit" aria-label="Unidade">
+              <option value="GB">GB</option>
+              <option value="MB">MB</option>
+            </select>
+          </div>
+        </fieldset>
+        <p class="settings-scope">
+          O modo de economia será escolhido automaticamente conforme o uso. Esta
+          etapa apenas salva o orçamento e ainda não altera o carregamento de
+          recursos.
+        </p>
+        <p id="settings-error" class="message error" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button id="cancel-settings" type="button">Cancelar</button>
+          <button id="save-settings" class="primary" type="submit">
+            Salvar configuração
+          </button>
+        </div>
+      </form>
+    </dialog>
     <main>
       <div class="intro">
         <div>

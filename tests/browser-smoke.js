@@ -64,6 +64,67 @@ try {
   await panel.goto(
     `chrome-extension://${extensionId}/ui/panel.html?tabId=${tabId}`,
   );
+  await panel.getByRole("button", { name: "Configurar orçamento" }).click();
+  await panel
+    .getByRole("textbox", { name: "Plano", exact: true })
+    .fill("Plano de teste");
+  await panel.getByLabel("Quantidade de dados").fill("25");
+  await panel.getByLabel("Unidade").selectOption("GB");
+  await panel
+    .getByRole("button", { name: "Salvar configuração", exact: true })
+    .click();
+  assert.equal(
+    await panel.locator("#plan-total").innerText(),
+    "25 GB",
+    "total do plano salvo",
+  );
+  assert.equal(
+    await panel.locator("#mode-indicator strong").innerText(),
+    "Normal",
+    "modo atual exibido sem controle manual",
+  );
+  assert.deepEqual(
+    await worker.evaluate(async () => {
+      const value = (await chrome.storage.local.get("dataBudgetSettings"))
+        .dataBudgetSettings;
+      return {
+        planName: value.planName,
+        dataAmount: value.dataAmount,
+        dataUnit: value.dataUnit,
+        hasSavingMode: Object.hasOwn(value, "savingMode"),
+      };
+    }),
+    {
+      planName: "Plano de teste",
+      dataAmount: 25,
+      dataUnit: "GB",
+      hasSavingMode: false,
+    },
+    "orçamento persistido no armazenamento local",
+  );
+  await panel.reload();
+  await panel.locator("#plan-indicator.configured").waitFor();
+  await panel
+    .getByRole("button", { name: /Configurar orçamento\. Atual:/ })
+    .click();
+  assert.equal(
+    await panel
+      .getByRole("textbox", { name: "Plano", exact: true })
+      .inputValue(),
+    "Plano de teste",
+    "orçamento restaurado ao reabrir o painel",
+  );
+  assert.equal(
+    await panel.getByText("Modo de economia", { exact: true }).count(),
+    0,
+    "modo não pode ser escolhido na configuração",
+  );
+  await mkdir("artifacts", { recursive: true });
+  await panel.screenshot({
+    path: "artifacts/configuracao-orcamento.png",
+    fullPage: true,
+  });
+  await panel.getByRole("button", { name: "Cancelar", exact: true }).click();
   await panel
     .getByRole("button", { name: "Iniciar captura", exact: true })
     .click();
@@ -192,6 +253,20 @@ try {
     false,
     "sem overflow horizontal no painel estreito",
   );
+  await panel
+    .getByRole("button", { name: /Configurar orçamento\. Atual:/ })
+    .click();
+  assert.equal(
+    await panel.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+    "configuração sem overflow horizontal no painel estreito",
+  );
+  await panel.screenshot({
+    path: "artifacts/configuracao-orcamento-lateral.png",
+  });
+  await panel.getByRole("button", { name: "Cancelar", exact: true }).click();
   await panel.screenshot({ path: "artifacts/painel-lateral.png" });
   const beforeNavigation = (await getState()).session.requests.length;
   await page.reload();

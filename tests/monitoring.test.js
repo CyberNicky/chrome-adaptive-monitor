@@ -10,6 +10,39 @@ import {
 import { aggregateMetrics } from "../extension/monitoring/metrics-aggregator.js";
 import { sanitizeUrl } from "../extension/monitoring/consumption-estimator.js";
 import { classifyResource } from "../extension/monitoring/resource-classifier.js";
+import { createBudgetSettings } from "../extension/knowledge/budget-store.js";
+
+test("valida e normaliza a configuração persistente de orçamento", () => {
+  assert.deepEqual(
+    createBudgetSettings(
+      {
+        planName: "  Plano móvel  ",
+        dataAmount: "20.5",
+        dataUnit: "GB",
+        savingMode: "strict",
+      },
+      123,
+    ),
+    {
+      schemaVersion: 2,
+      planName: "Plano móvel",
+      dataAmount: 20.5,
+      dataUnit: "GB",
+      updatedAt: 123,
+    },
+  );
+});
+
+test("rejeita configurações de orçamento incompletas ou inválidas", () => {
+  const valid = {
+    planName: "Plano",
+    dataAmount: 10,
+    dataUnit: "GB",
+  };
+  assert.throws(() => createBudgetSettings({ ...valid, planName: "" }));
+  assert.throws(() => createBudgetSettings({ ...valid, dataAmount: 0 }));
+  assert.throws(() => createBudgetSettings({ ...valid, dataUnit: "TB" }));
+});
 
 function fixture() {
   const s = createSession(

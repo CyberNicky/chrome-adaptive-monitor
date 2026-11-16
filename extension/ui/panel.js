@@ -1,5 +1,6 @@
 import { RESOURCE_TYPES } from "../monitoring/resource-classifier.js";
 import { sanitizeUrl } from "../monitoring/consumption-estimator.js";
+import { budgetStore } from "../knowledge/budget-store.js";
 
 const $ = (id) => document.getElementById(id);
 const labels = {
@@ -21,6 +22,7 @@ let busy = false;
 let connection;
 let reconnect;
 let disposed = false;
+let budgetSettings = null;
 
 export function formatBytes(value) {
   if (value === null || value === undefined) return "—";
@@ -39,6 +41,42 @@ function text(tag, value, className) {
   node.textContent = value;
   if (className) node.className = className;
   return node;
+}
+
+function renderBudgetSettings() {
+  const total = budgetSettings
+    ? `${budgetSettings.dataAmount.toLocaleString("pt-BR")} ${budgetSettings.dataUnit}`
+    : "—";
+  const planLabel = budgetSettings
+    ? `Plano total: ${budgetSettings.planName}, ${total}`
+    : "Plano total ainda não configurado";
+  $("plan-total").textContent = total;
+  $("plan-indicator").classList.toggle("configured", Boolean(budgetSettings));
+  $("plan-indicator").setAttribute("aria-label", planLabel);
+  $("plan-indicator").title = planLabel;
+  $("open-settings").setAttribute(
+    "aria-label",
+    budgetSettings
+      ? `Configurar orçamento. Atual: ${budgetSettings.planName}, ${total}`
+      : "Configurar orçamento",
+  );
+}
+
+function fillSettingsForm() {
+  $("plan-name").value = budgetSettings?.planName ?? "";
+  $("data-amount").value = budgetSettings?.dataAmount ?? "";
+  $("data-unit").value = budgetSettings?.dataUnit ?? "GB";
+  $("settings-error").hidden = true;
+}
+
+function openSettings() {
+  fillSettingsForm();
+  $("settings-dialog").showModal();
+  $("plan-name").focus();
+}
+
+function closeSettings() {
+  $("settings-dialog").close();
 }
 
 async function send(type, extra = {}) {
@@ -361,6 +399,34 @@ $("start").addEventListener("click", () =>
 $("stop").addEventListener("click", () => action(() => send("STOP")));
 $("reload").addEventListener("click", () => action(() => send("RELOAD")));
 $("clear").addEventListener("click", () => action(() => send("CLEAR")));
+$("open-settings").addEventListener("click", openSettings);
+$("close-settings").addEventListener("click", closeSettings);
+$("cancel-settings").addEventListener("click", closeSettings);
+$("settings-dialog").addEventListener("click", (event) => {
+  if (event.target === $("settings-dialog")) closeSettings();
+});
+$("settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const save = $("save-settings");
+  const error = $("settings-error");
+  error.hidden = true;
+  save.disabled = true;
+  try {
+    const form = new FormData(event.currentTarget);
+    budgetSettings = await budgetStore.save({
+      planName: form.get("planName"),
+      dataAmount: form.get("dataAmount"),
+      dataUnit: form.get("dataUnit"),
+    });
+    renderBudgetSettings();
+    closeSettings();
+  } catch (cause) {
+    error.textContent = cause.message || "Não foi possível salvar a configuração.";
+    error.hidden = false;
+  } finally {
+    save.disabled = false;
+  }
+});
 for (const id of ["search", "filter", "sort", "tab-filter"])
   $(id).addEventListener(id === "search" ? "input" : "change", () => {
     limit = 100;
@@ -424,6 +490,8 @@ chrome.tabs.onActivated.addListener(() => {
 });
 const requestedId = Number(new URLSearchParams(location.search).get("tabId"));
 await action(async () => {
+  budgetSettings = await budgetStore.load();
+  renderBudgetSettings();
   if (requestedId) {
     const tab = await chrome.tabs.get(requestedId).catch(() => null);
     targetTab =

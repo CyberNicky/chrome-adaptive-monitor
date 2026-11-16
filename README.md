@@ -1,8 +1,10 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. Esta entrega implementa o monitoramento; as decisões e regras de adaptação ficam para as próximas etapas.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. Esta entrega implementa o monitoramento e a configuração persistente do orçamento; as decisões e regras de adaptação ficam para as próximas etapas.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
+
+O botão de engrenagem no topo permite registrar o nome do plano e a franquia total em MB ou GB. Essa configuração fica em armazenamento local e é recuperada ao reabrir o navegador. Antes da engrenagem, o cabeçalho mostra o total configurado e o modo de economia atual. O modo não é escolhido pelo usuário: futuramente será alterado pelo ciclo autoadaptativo conforme o consumo. Nesta etapa ele permanece Normal e ainda não altera requisições nem ativa regras de economia.
 
 ![Painel com requisições reais da demonstração local](docs/painel.png)
 
@@ -37,7 +39,7 @@ Veja o [roteiro de apresentação](docs/DEMONSTRACAO.md), o [mapeamento da arqui
 | Classificador de recursos                | HTML, CSS, JavaScript, imagem, áudio, vídeo, mídia, fonte, Fetch/XHR e outros                   |
 | Estimador de consumo                     | Usa bytes recebidos informados pelo Chrome; mantém valores parciais ou desconhecidos explícitos |
 | Agregador de métricas                    | Totais, tipos, domínios, ritmo médio, cache, pendências e falhas                                |
-| Conhecimento                             | Uma sessão temporária em `chrome.storage.session`, com exportação manual                        |
+| Conhecimento                             | Sessão temporária e configuração persistente do orçamento e do plano                             |
 | Análise, Planejamento, Execução e Efetor | Planejados; sem decisões automáticas ou regras de bloqueio nesta versão                         |
 
 O sistema gerenciado continua sendo **o carregamento de recursos no Chrome**. Os sensores são implementados na extensão e interagem com as APIs do navegador. A extensão não injeta scripts na página nem modifica o HTML/DOM.
@@ -58,7 +60,7 @@ São unidades decimais: **1 kB = 1.000 B; 1 MB = 1.000.000 B**. O total não equ
 - Abas vazias e páginas internas entram em espera sem encerrar a sessão. Ao visitar uma página HTTP(S), a captura retoma automaticamente. O próprio painel amplo é uma exceção: abri-lo mantém o último alvo. Fechar a aba monitorada mantém a sessão ativa para acompanhar a próxima página. **Encerrar captura** desliga a automação.
 - Ao ativar uma aba que já terminou de carregar, somente as próximas requisições serão observadas. Recarregue manualmente se quiser registrar o carregamento inicial completo; a extensão não recarrega páginas por conta própria.
 - Até **3.000 requisições por sessão**. Ao atingir o limite, o painel informa que novos registros foram ignorados; os totais cobrem apenas os registros retidos. Exporte e inicie outra sessão.
-- Registros na memória da sessão do navegador: reabrir o painel preserva os dados, reiniciar o navegador os remove. Não é um histórico permanente.
+- Registros de captura ficam na memória da sessão do navegador: reabrir o painel preserva os dados, reiniciar o navegador os remove. A configuração de orçamento usa `chrome.storage.local` e permanece disponível após reiniciar o navegador.
 - Sem coleta de corpos das respostas, cookies ou cabeçalhos de autenticação. URLs são armazenadas sem query string, fragmento ou credenciais. Caminhos ainda podem conter informações pessoais; revise o JSON antes de compartilhar.
 - Sem servidor de telemetria. O servidor da demo atende apenas no loopback `127.0.0.1`.
 - Páginas internas e protegidas do Chrome não podem ser monitoradas. Iframes e workers instrumentados são observados, mas há limites de cobertura em transições de contexto, service workers e conexões de longa duração.

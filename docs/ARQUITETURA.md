@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-O projeto completo busca gerenciar um orçamento de dados com o ciclo MAPE-K. A entrega inicial implementa **M** e a parte de **K** necessária para guardar uma sessão observada. Não existe ciclo autoadaptativo completo ainda.
+O projeto completo busca gerenciar um orçamento de dados com o ciclo MAPE-K. A entrega atual implementa **M** e parte de **K**: guarda uma sessão observada e a configuração persistente de plano e franquia. O modo atual é apenas apresentado na interface; futuramente será definido pelo ciclo autoadaptativo, não pelo usuário. Não existe ciclo autoadaptativo completo ainda.
 
 ## Fluxo implementado
 
@@ -25,7 +25,7 @@ Não há seta de atuação sobre o Chrome nesta versão. A instrumentação do s
 | Classificador           | `extension/monitoring/resource-classifier.js`   | Usa tipo do Chrome e MIME; diferencia áudio/vídeo quando possível               |
 | Estimador               | `extension/monitoring/consumption-estimator.js` | Interpreta tamanho conhecido, parcial, cache e indisponibilidade                |
 | Agregador               | `extension/monitoring/metrics-aggregator.js`    | Consolida bytes e contadores por recurso/domínio e média por minuto             |
-| Conhecimento            | `extension/knowledge/session-store.js`          | Guarda uma sessão em `chrome.storage.session`                                   |
+| Conhecimento            | `extension/knowledge/`                          | Guarda a sessão temporária e a configuração persistente do orçamento            |
 | Controlador da extensão | `extension/background.js`                       | Coordena sensor, sessão e mensagens; não decide políticas de economia           |
 | Interface               | `extension/ui/`                                 | Apresenta dados, controla captura e exporta evidências                          |
 
@@ -39,7 +39,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 **Contextos filhos.** A instrumentação usa sessões CDP planas, disponíveis via `chrome.debugger` a partir do Chrome 125. Novos iframes/workers dedicados são instrumentados antes de continuar sua execução, reduzindo a perda de eventos iniciais. Isso pode introduzir atraso de instrumentação. IDs são isolados por contexto; transições de alvo com ID inequívoco podem ser correlacionadas. Contextos não instrumentados podem deixar cobertura parcial.
 
-**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Orçamento, prioridades, regras e exceções ainda não existem. O armazenamento recebe somente o modelo normalizado, sem corpos ou headers das requisições.
+**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano e franquia são persistidos localmente, mas ainda não são avaliados nem aplicados. O indicador de modo permanece Normal até a implementação da análise e do planejamento automáticos. Período do orçamento, prioridades, regras e exceções ainda não existem. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
 
 **Interface persistente.** O painel usa conexão de mensagens para receber atualizações agrupadas em intervalos de 250 ms, evitando renderizar a cada pacote recebido. A tabela apresenta 100 registros por vez, com opção de mostrar mais; as métricas incluem todos os registros retidos. A captura continua ao fechar o painel, até ser encerrada ou desconectada.
 

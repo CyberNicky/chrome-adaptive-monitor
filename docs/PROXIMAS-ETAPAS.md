@@ -8,7 +8,7 @@ Critério de conclusão: cenários reproduzíveis com cobertura documentada e di
 
 ## 2. Ampliar Conhecimento
 
-Criar modelo de orçamento em bytes e período, preferências, prioridades e exceções por domínio. Definir retenção e consentimento para histórico permanente. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas.
+A configuração básica de plano e franquia já é persistida localmente. Falta acrescentar período do orçamento, prioridades e exceções por domínio. Definir retenção e consentimento para histórico permanente. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas. O modo de economia será estado do ciclo autoadaptativo, e não uma preferência manual.
 
 Critério de conclusão: configurar e recuperar orçamento e exceções, com testes das unidades, período e reinicialização do orçamento.
 
