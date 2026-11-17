@@ -31,6 +31,7 @@ try {
     args: [
       `--disable-extensions-except=${extension}`,
       `--load-extension=${extension}`,
+      "--autoplay-policy=no-user-gesture-required",
     ],
   });
   worker =
@@ -60,12 +61,11 @@ try {
       .fill("Teste dos três modos");
     await panel.getByLabel("Quantidade de dados").fill(String(amount));
     await panel.getByLabel("Unidade", { exact: true }).selectOption("MB");
-    await panel
-      .getByLabel("X · Econômico a partir de (%)", { exact: true })
-      .fill("70");
-    await panel
-      .getByLabel("Y · Restritivo a partir de (%)", { exact: true })
-      .fill("90");
+    assert.equal(
+      await panel.locator("#economy-percent, #restricted-percent").count(),
+      0,
+      "usuário não configura as metas",
+    );
     await panel
       .getByLabel("Ativar economia automática durante a captura")
       .setChecked(enabled);
@@ -107,6 +107,7 @@ try {
           element.onloadeddata = () => finish("loaded");
           element.onerror = () => finish("blocked");
           if (kind !== "image") element.preload = "auto";
+          element.dataset.probe = tag;
           document.body.append(element);
           element.src = paths[kind] + `&probe=${tag}`;
           if (kind !== "image") element.load();
@@ -127,6 +128,16 @@ try {
       `Normal permite ${kind}`,
     );
   await waitMode("normal");
+  const music = page.locator('audio[data-probe="normal-audio"]');
+  await music.evaluate(async (element) => {
+    element.loop = true;
+    await element.play();
+  });
+  assert.equal(
+    await music.evaluate((element) => element.paused),
+    false,
+    "música toca normalmente antes da adaptação",
+  );
   const consumeTo = async (bytes) => {
     const current = (await state()).metrics.transferredBytes;
     await page.evaluate(
@@ -136,11 +147,53 @@ try {
       Math.max(1, bytes - current),
     );
   };
+  const cachedAudio = await page.evaluate(async () => {
+    const bytes = new Uint8Array(
+      await (await fetch("/audio.wav?cached-for-frame=1")).arrayBuffer(),
+    );
+    let binary = "";
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return `data:audio/wav;base64,${btoa(binary)}`;
+  });
   await consumeTo(720000);
   await waitMode("economy");
   assert.equal(
     await panel.locator("#mode-indicator strong").innerText(),
     "Econômico",
+  );
+  assert.equal(
+    await music.evaluate((element) => element.paused),
+    true,
+    "adaptação pausa áudio já carregado",
+  );
+  assert.equal(
+    await music.evaluate((element) => element.muted),
+    true,
+    "áudio armazenado no buffer permanece sem som",
+  );
+  assert.equal(
+    await worker.evaluate(
+      async (id) => (await chrome.tabs.get(id)).mutedInfo.muted,
+      tabId,
+    ),
+    true,
+    "aba silenciada como proteção adicional",
+  );
+  await music.evaluate(async (element) => {
+    await element.play().catch(() => {});
+  });
+  const pausedTime = await music.evaluate((element) => element.currentTime);
+  await page.waitForTimeout(350);
+  assert.equal(
+    await music.evaluate((element) => element.paused),
+    true,
+    "clicar novamente não reproduz o áudio do buffer",
+  );
+  assert.ok(
+    Math.abs(
+      (await music.evaluate((element) => element.currentTime)) - pausedTime,
+    ) < 0.1,
+    "reprodução permanece parada",
   );
   assert.equal(await asset(page, "image", "economy-image"), "loaded");
   for (const kind of ["audio", "video"]) {
@@ -155,6 +208,57 @@ try {
       "bloqueado antes de chegar ao servidor",
     );
   }
+  // The guard must also stop cached data without relying on a network failure.
+  const frameUrl = base.replace("127.0.0.1", "localhost") + "/frame";
+  await page.evaluate((url) => {
+    const iframe = document.createElement("iframe");
+    iframe.src = url;
+    document.body.append(iframe);
+  }, frameUrl);
+  await until(
+    async () =>
+      Boolean(page.frames().find((frame) => frame.url() === frameUrl)),
+    "iframe de outra origem",
+  );
+  const frame = page.frames().find((frame) => frame.url() === frameUrl);
+  await frame.waitForLoadState();
+  const checkCachedPlayback = async (target) =>
+    target.evaluate(async (source) => {
+      const player = document.createElement("audio");
+      player.src = source;
+      player.loop = true;
+      player.id = "cached-player";
+      document.body.append(player);
+      await player.play().catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return { paused: player.paused, muted: player.muted };
+    }, cachedAudio);
+  assert.deepEqual(
+    await checkCachedPlayback(frame),
+    { paused: true, muted: true },
+    "mídia em iframe também é interrompida",
+  );
+  await page.waitForTimeout(7000);
+  await music.evaluate(async (player) => {
+    await player.play().catch(() => {});
+  });
+  assert.equal(
+    await music.evaluate((player) => player.paused),
+    true,
+    "controle permanece ativo após renovar sua duração",
+  );
+  await worker.evaluate(
+    async (id) => chrome.tabs.update(id, { muted: false }),
+    tabId,
+  );
+  await until(
+    async () =>
+      await worker.evaluate(
+        async (id) => (await chrome.tabs.get(id)).mutedInfo.muted,
+        tabId,
+      ),
+    "modo de economia mantém a aba sem som",
+  );
   await mkdir("artifacts", { recursive: true });
   await until(
     async () =>
@@ -204,8 +308,40 @@ try {
     }),
     200,
   );
+  await configure(10);
+  await waitMode("normal");
+  assert.equal(
+    await music.evaluate((player) => player.paused),
+    true,
+    "Normal não retoma música automaticamente",
+  );
+  assert.equal(
+    await music.evaluate((player) => player.muted),
+    false,
+    "restaura o mute original do elemento",
+  );
+  await music.evaluate(async (player) => {
+    await player.play();
+  });
+  assert.equal(
+    await music.evaluate((player) => player.paused),
+    false,
+    "áudio do buffer volta a tocar por ação do usuário em Normal",
+  );
+  await configure(1);
+  await waitMode("restricted");
+  assert.equal(
+    await music.evaluate((player) => player.paused),
+    true,
+    "nova adaptação interrompe novamente o áudio",
+  );
   await page.reload();
   await waitMode("restricted");
+  assert.equal(
+    await page.locator("img").first().isVisible(),
+    false,
+    "Restritivo oculta imagem já presente no DOM",
+  );
   const restricted = await state();
   assert.ok(
     restricted.session.requests.some(
@@ -285,6 +421,14 @@ try {
   await panel.screenshot({ path: "artifacts/modos-lateral.png" });
   await configure(10);
   await waitMode("normal");
+  assert.equal(
+    await worker.evaluate(
+      async (id) => (await chrome.tabs.get(id)).mutedInfo.muted,
+      tabId,
+    ),
+    false,
+    "Normal restaura o estado de som da aba",
+  );
   for (const kind of ["image", "audio", "video"])
     assert.equal(
       await asset(page, kind, `restored-${kind}`),
@@ -324,7 +468,7 @@ try {
         browser: context.browser().version(),
         modes: ["normal", "economy", "restricted"],
         confirmed:
-          "Bloqueios reais antes do servidor; texto/CSS/JS preservados; troca de aba e restauração verificadas.",
+          "Bloqueios reais antes do servidor; áudio em buffer e iframe interrompidos; renovação da proteção, texto/CSS/JS, troca de aba e restauração verificadas.",
       },
       null,
       2,

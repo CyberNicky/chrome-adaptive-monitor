@@ -854,19 +854,6 @@ tr:last-child td {
   }
 }
 
-.threshold-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.threshold-fields label {
-  font-size: 11px;
-  color: var(--muted);
-}
-.threshold-fields input {
-  display: block;
-  margin-top: 6px;
-}
 .automatic-toggle {
   display: flex;
   align-items: center;
@@ -909,9 +896,4 @@ tr:last-child td {
   color: #a1392c;
   background: #fff1ed;
   border-color: #efcbc2;
-}
-@media (max-width: 420px) {
-  .threshold-fields {
-    grid-template-columns: 1fr;
-  }
 }

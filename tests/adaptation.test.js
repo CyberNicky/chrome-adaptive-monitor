@@ -35,27 +35,31 @@ test("troca de modo exatamente nos limites X e Y, com unidades decimais", () => 
   );
 });
 
-test("limites editáveis validados e desativação, parada ou aba interna liberam recursos", () => {
-  for (const limits of [
-    { economyPercent: 90, restrictedPercent: 70 },
-    { economyPercent: 0 },
-    { restrictedPercent: 101 },
-    { economyPercent: "abc" },
-    { economyPercent: 80, restrictedPercent: 80 },
-  ])
-    assert.throws(() => createBudgetSettings({ ...settings, ...limits }));
-  const configured = createBudgetSettings({
+test("metas são do sistema e ignoram antigos limites do usuário; desativação libera recursos", () => {
+  const previous = createBudgetSettings({
     ...settings,
     economyPercent: 20,
     restrictedPercent: 60,
   });
+  assert.equal(Object.hasOwn(previous, "economyPercent"), false);
+  assert.equal(Object.hasOwn(previous, "restrictedPercent"), false);
   assert.equal(
-    planAdaptation(analyzeBudget(configured, 200000), session).mode,
-    "economy",
+    planAdaptation(analyzeBudget(previous, 200000), session).mode,
+    "normal",
   );
   assert.equal(
-    planAdaptation(analyzeBudget(configured, 600000), session).mode,
-    "restricted",
+    planAdaptation(
+      analyzeBudget(
+        { ...previous, economyPercent: 1, restrictedPercent: 2 },
+        600000,
+      ),
+      session,
+    ).mode,
+    "normal",
+  );
+  assert.equal(
+    planAdaptation(analyzeBudget(previous, 700000), session).mode,
+    "economy",
   );
   const disabled = analyzeBudget({ ...settings, adaptiveEnabled: false }, 1e6);
   assert.equal(planAdaptation(disabled, session).mode, "normal");

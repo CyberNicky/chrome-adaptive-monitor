@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.4.0 implementa monitoramento e um ciclo básico de adaptação por consumo: a Análise compara os bytes da captura com X/Y; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém os parâmetros persistentes e os registros temporários. Ainda não há ciclo mensal, contador persistente de uso, alertas ou histórico de sessões anteriores.
+A entrega 0.5.0 implementa monitoramento e um ciclo básico de adaptação por consumo: a Análise compara os bytes da captura com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém os parâmetros persistentes e os registros temporários. Ainda não há ciclo mensal, contador persistente de uso, alertas ou histórico de sessões anteriores.
 
 ## Fluxo implementado
 
@@ -45,7 +45,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 **Contextos filhos.** A instrumentação usa sessões CDP planas, disponíveis via `chrome.debugger` a partir do Chrome 125. Novos iframes/workers dedicados são instrumentados antes de continuar sua execução, reduzindo a perda de eventos iniciais. Isso pode introduzir atraso de instrumentação. IDs são isolados por contexto; transições de alvo com ID inequívoco podem ser correlacionadas. Contextos não instrumentados podem deixar cobertura parcial.
 
-**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia, X/Y e ativação automática persistem localmente e já são avaliados. O consumo considerado ainda é o da captura atual. Período da franquia, histórico permanente, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
+**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia e ativação automática persistem localmente. As metas são parâmetros internos da política, não preferências do usuário. O consumo considerado ainda é o da captura atual. Período da franquia, histórico permanente, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
 
 **Interface persistente.** O painel usa conexão de mensagens para receber atualizações agrupadas em intervalos de 250 ms, evitando renderizar a cada pacote recebido. A tabela apresenta 100 registros por vez, com opção de mostrar mais; as métricas incluem todos os registros retidos. A captura continua ao fechar o painel, até ser encerrada ou desconectada.
 
@@ -80,6 +80,20 @@ A interface apresenta esse resultado em um ranking global, separado dos filtros 
 
 As regras de sessão usam IDs reservados 9001 a 9004 e nunca bloqueiam tipos HTML, CSS, scripts ou fontes. Ao trocar de aba, o controlador remove as regras do alvo anterior antes de instalar as do novo. Encerrar, desativar a economia ou voltar a Normal remove os bloqueios. A fila do controlador serializa comandos e atualizações, evitando concorrência entre troca de aba e aplicação das regras.
 
-A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Conteúdo já recebido não é removido.
+A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Dados já recebidos não são recuperáveis; o controle complementar da versão 0.5.0 pausa a reprodução e oculta imagens em elementos suportados.
 
 Esta etapa usa exclusivamente a transferência da captura atual, não a soma entre reinicializações. O avaliador de ritmo em relação ao período da franquia, o gerenciador de exceções e o histórico persistente ainda não estão implementados.
+
+## Metas do sistema e controle da reprodução (0.5.0)
+
+A meta é preservar a franquia. A política `extension/knowledge/adaptation-policy.js` define os critérios experimentais de 70% e 90%, utilizados pela Análise. A configuração do usuário contém o plano, a franquia e a ativação automática, sem campos X/Y. Configurações antigas são migradas para o novo formato e seus percentuais não influenciam a decisão. O Planejamento segue selecionando o modo automaticamente.
+
+O **Efetor** passa a ter duas ações complementares: as regras DNR economizam os próximos downloads; `chrome-content-effector.js` e `page-content-guard.js` interrompem a reprodução já carregada. Através de um mundo isolado CDP, o controle pausa/silencia áudio e vídeo HTML, impede novas tentativas de reprodução, oculta esses controles enquanto bloqueados e oculta imagens HTML/SVG no Restritivo. Observa novos elementos e shadow roots abertos e é instalado também nos iframes instrumentados.
+
+A aba é silenciada como proteção adicional para Web Audio e players sem elementos HTML acessíveis. Isso garante silêncio, mas não significa que o processamento interno desses players foi suspenso nem que todos os seus downloads opacos foram cancelados. O bloqueio de rede mantém as limitações documentadas. Backgrounds CSS e representações gráficas específicas não são tratados pelo controle de imagens já exibidas.
+
+Há uma ampliação concreta do ponto de atuação: além da filtragem das requisições, o Efetor controla temporariamente reprodução e apresentação no DOM. O sistema gerenciado continua sendo os recursos web no Chrome; a documentação deve explicitar essa ação complementar, pois bloquear somente a rede não interrompe conteúdo já em buffer. Os arquivos HTML do servidor não são alterados.
+
+Ao voltar a Normal, desativar, encerrar ou liberar uma aba, a extensão restaura suas alterações sem iniciar áudio automaticamente nem desfazer um silenciamento prévio do usuário. O controle da página tem uma duração renovada enquanto a captura está ativa; se a extensão for desconectada/recarregada, ele expira e restaura a página. O reinício também recupera silenciamento que tenha sido deixado pela própria extensão.
+
+Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. Datas, alertas e histórico permanente seguem como próximos incrementos.

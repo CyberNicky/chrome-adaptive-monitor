@@ -24,12 +24,10 @@ test("valida e normaliza a configuração persistente de orçamento", () => {
       123,
     ),
     {
-      schemaVersion: 2,
+      schemaVersion: 3,
       planName: "Plano móvel",
       dataAmount: 20.5,
       dataUnit: "GB",
-      economyPercent: 70,
-      restrictedPercent: 90,
       adaptiveEnabled: true,
       updatedAt: 123,
     },
@@ -339,4 +337,41 @@ test("ranking inclui registros antigos sem tabId na aba original e aceita sessã
   ];
   assert.equal(aggregateMetrics(s).byTab[0].tabId, 10);
   assert.equal(aggregateMetrics(s).byTab[0].bytes, 42);
+});
+
+test("configurações antigas migram sem devolver ao usuário os limites da política", async () => {
+  const { budgetStore } =
+    await import("../extension/knowledge/budget-store.js");
+  const previousChrome = globalThis.chrome;
+  let saved = {
+    schemaVersion: 2,
+    planName: "Plano anterior",
+    dataAmount: 1,
+    dataUnit: "MB",
+    economyPercent: 1,
+    restrictedPercent: 2,
+    updatedAt: 123,
+  };
+  globalThis.chrome = {
+    storage: {
+      local: {
+        async get(key) {
+          return { [key]: saved };
+        },
+        async set(value) {
+          saved = value.dataBudgetSettings;
+        },
+      },
+    },
+  };
+  try {
+    const settings = await budgetStore.load();
+    assert.equal(settings.schemaVersion, 3);
+    assert.equal(saved.schemaVersion, 3);
+    assert.equal(settings.dataAmount, 1);
+    assert.equal(Object.hasOwn(saved, "economyPercent"), false);
+    assert.equal(Object.hasOwn(saved, "restrictedPercent"), false);
+  } finally {
+    globalThis.chrome = previousChrome;
+  }
 });

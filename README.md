@@ -1,10 +1,10 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.4.0 implementa a primeira etapa de adaptação: modos Normal, Econômico e Restritivo por limites X/Y do consumo observado na captura atual. Período da franquia, alertas e histórico de sessões anteriores ficam para as próximas entregas, uma de cada vez.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.5.0 implementa a primeira etapa de adaptação: modos Normal, Econômico e Restritivo por metas internas do sistema sobre o consumo observado na captura atual. Período da franquia, alertas e histórico de sessões anteriores ficam para as próximas entregas, uma de cada vez.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
-O botão de engrenagem permite configurar plano, franquia em MB/GB, limites X e Y (inicialmente 70% e 90%) e ativar/desativar a economia automática. O modo muda automaticamente durante a captura. **O consumo desta etapa é somente o da captura atual, não o da franquia mensal real.** A configuração persiste; os contadores ainda não são um histórico permanente.
+O botão de engrenagem permite configurar plano, franquia em MB/GB, ativar/desativar a economia automática. As metas de 70% e 90% pertencem à política do sistema, sem campos para o usuário estimar os limites. O modo muda automaticamente durante a captura. **O consumo desta etapa é somente o da captura atual, não o da franquia mensal real.** A configuração persiste; os contadores ainda não são um histórico permanente.
 
 ![Painel com requisições reais da demonstração local](docs/painel.png)
 
@@ -42,7 +42,7 @@ Veja o [roteiro de apresentação](docs/DEMONSTRACAO.md), o [mapeamento da arqui
 | Conhecimento                             | Sessão temporária e configuração persistente do orçamento e do plano                            |
 | Análise, Planejamento, Execução e Efetor | Comparam consumo com X/Y, selecionam o modo e aplicam regras declarativas por aba               |
 
-O sistema gerenciado continua sendo **o carregamento de recursos no Chrome**. Os sensores são implementados na extensão e interagem com as APIs do navegador. A extensão não injeta scripts na página nem modifica o HTML/DOM.
+O sistema gerenciado continua sendo **o carregamento de recursos no Chrome**. Os sensores são implementados na extensão e interagem com as APIs do navegador. As regras de rede são o ponto principal de economia. Um controle complementar de reprodução, em mundo isolado via CDP, pausa mídia já carregada e oculta elementos de imagem no modo Restritivo; isso altera temporariamente a apresentação do DOM, sem modificar os arquivos do servidor.
 
 ## Interpretar os tamanhos
 
@@ -90,7 +90,7 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.4.0** mantém o monitoramento e o ranking, e acrescenta os modos automáticos de economia. O Chrome pode solicitar a nova permissão para bloquear conteúdo. Confira as instruções de teste da etapa 1 abaixo.
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.5.0** mantém o monitoramento e o ranking, e acrescenta os modos automáticos de economia. O Chrome pode solicitar a nova permissão para bloquear conteúdo. Confira as instruções de teste da etapa 1 abaixo.
 
 ## Comparar o consumo das abas
 
@@ -101,19 +101,29 @@ O ranking, os cartões e o gráfico por recurso mostram o acumulado da sessão i
 ## Etapa 1: testar os três modos
 
 1. Recarregue o Navega em `chrome://extensions` e reabra o painel.
-2. Na engrenagem, configure um plano com **1 MB**, **X = 70%**, **Y = 90%** e economia automática ativa. Salve. Os limites devem obedecer `0 < X < Y <= 100`.
+2. Na engrenagem, informe um plano com **1 MB** e mantenha a economia automática ativa. Salve. Você não escolhe os limites; a política do sistema decide pelos níveis internos de 70% e 90%.
 3. Execute `npm run demo`, abra `http://127.0.0.1:4173`, inicie a captura e recarregue a página.
-4. Em **Normal**, teste imagens e mídia: tudo deve carregar.
-5. Use **Consumir 100 kB de teste** até o modo confirmado ser **Econômico**. Novos áudios e vídeos serão bloqueados, enquanto imagens e texto continuam permitidos.
-6. Continue até **Restritivo**. Novas imagens também serão bloqueadas. Recarregue a página para observar texto sem baixar imagens e mídia novamente.
+4. Em **Normal**, carregue imagens e mídia e comece a reproduzir o áudio. Tudo deve funcionar normalmente.
+5. Use **Consumir 100 kB de teste** até o modo confirmado ser **Econômico**. O áudio que já estava tocando deve parar; tentar tocar o conteúdo do buffer não deve produzir som. Novos áudios e vídeos também serão bloqueados, enquanto imagens e texto continuam permitidos.
+6. Continue até **Restritivo**. Imagens já exibidas também serão ocultadas, e novos downloads serão bloqueados. Não é preciso recarregar para interromper a reprodução já carregada.
 7. Para testar a reversão sem perder os registros, aumente a franquia para **10 MB** ou desative a economia automática e salve. A indicação volta a **Normal** e as próximas requisições voltam a carregar. Encerrar a captura também remove as regras.
 
-Os limites são calculados sobre a transferência acumulada de todas as abas observadas nesta captura. Os bloqueios se aplicam somente à aba monitorada; ao mudar de aba, são removidos da anterior e aplicados à nova. HTML, CSS, JavaScript e fontes são preservados. Conteúdo já baixado ou embutido no HTML não é removido; a extensão não recarrega páginas automaticamente.
+Os limites são calculados sobre a transferência acumulada de todas as abas observadas nesta captura. Os bloqueios se aplicam somente à aba monitorada; ao mudar de aba, são removidos da anterior e aplicados à nova. HTML, CSS, JavaScript e fontes são preservados. Áudio e vídeo HTML já carregados são pausados e sua retomada é impedida enquanto o modo estiver ativo. Imagens em elementos HTML/SVG são ocultadas no Restritivo e restauradas ao voltar ao Normal. Isso não desfaz os bytes já transferidos; a extensão não recarrega páginas automaticamente.
 
-A implementação usa tipos `media`/`image` e, para Fetch/XHR, extensões de arquivos comuns no caminho da URL. Não bloqueia APIs de texto/JSON genericamente. Players com URLs sem extensão, conteúdo via service worker, blobs, cache e formatos específicos podem exigir tratamento adicional; esta etapa não promete bloquear todo player de qualquer site.
+A implementação usa tipos `media`/`image` e, para Fetch/XHR, extensões de arquivos comuns no caminho da URL. Não bloqueia APIs de texto/JSON genericamente. O controle DOM também atua sobre mídia já carregada, inclusive no buffer, e a aba é silenciada como proteção adicional para Web Audio/players fora dos elementos comuns. Players não padronizados podem continuar processando silenciosamente; isso não equivale a cancelar todos os downloads de todo site.
 
-O painel só anuncia o modo após a confirmação das regras pelo Chrome. Essa confirmação da API é diferente de comprovar o bloqueio de todo conteúdo de um site; os testes da demo verificam ambos os pontos. Atualizações são agrupadas (250 ms), portanto requisições já iniciadas antes da aplicação do novo modo podem terminar normalmente.
+O painel anuncia o modo depois de aplicar as regras e o controle de conteúdo; falhas são sinalizadas. Essa confirmação da API é diferente de comprovar o bloqueio de todo conteúdo de um site; os testes da demo verificam ambos os pontos. Atualizações são agrupadas (250 ms), portanto requisições já iniciadas antes da aplicação do novo modo podem terminar normalmente.
 
 **Ainda pendentes, para teste incremental:** item 2: datas/ciclo e reinicialização da franquia; item 3: alertas e contador persistente de uso; item 4: consulta de sessões anteriores. Iniciar outra captura ou reiniciar o navegador ainda zera a base de consumo usada por esses limites.
 
 `npm run test:e2e` executa o monitoramento e depois os testes reais dos três modos, com verificação de que recursos bloqueados não chegaram ao servidor, preservação de texto/CSS/JS, escopo por aba e restauração do modo Normal. Evidências em `artifacts/modo-economico.png`, `artifacts/modo-restritivo.png` e `artifacts/adaptation-verification.json`.
+
+### Metas automáticas e mídia do buffer (0.5.0)
+
+A meta é preservar a franquia. A política centralizada em `extension/knowledge/adaptation-policy.js` define os níveis experimentais de 70% e 90%. A Análise usa esses níveis mesmo se uma configuração antiga ainda contiver X/Y; os campos antigos são removidos ao migrar a configuração. Não há seleção manual do modo nem edição dos percentuais na tela.
+
+Ao entrar em Econômico/Restritivo, a extensão pausa e silencia elementos HTML de áudio/vídeo, impede novas tentativas de reprodução e silencia a aba como proteção adicional. O controle cobre elementos dinâmicos, shadow roots abertos e iframes instrumentados. No Restritivo, também oculta elementos de imagem já exibidos; backgrounds CSS e players gráficos especiais podem exigir tratamento adicional.
+
+Ao voltar a Normal, desativar, encerrar ou trocar de aba, os estilos e o silenciamento da extensão são restaurados. Uma aba que o usuário já havia silenciado continua assim. A reprodução não é retomada automaticamente: é necessário clicar em play. O controle da página expira se perder o contato com a extensão, evitando alterações permanentes após desconexão/recarregamento.
+
+O teste real reproduz um áudio antes de atingir a meta, confirma a pausa, tenta reproduzir novamente pelo buffer, testa áudio embutido em iframe de outra origem e verifica a liberação no Normal. Isso complementa a verificação de bloqueio de novas requisições no servidor.

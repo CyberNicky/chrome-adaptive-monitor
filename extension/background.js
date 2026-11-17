@@ -18,6 +18,13 @@ import { analyzeBudget } from "./analysis/budget-analyzer.js";
 import { planAdaptation } from "./planning/adaptation-planner.js";
 import { createRequestEffector } from "./effectors/chrome-request-effector.js";
 
+import { createContentEffector } from "./effectors/chrome-content-effector.js";
+const contentEffector = createContentEffector({
+  sendCommand: (target, method, params) =>
+    chrome.debugger.sendCommand(target, method, params),
+  tabs: chrome.tabs,
+  runtimeId: chrome.runtime.id,
+});
 let budgetSettings = null;
 let adaptation = null;
 const effector = createRequestEffector(chrome.declarativeNetRequest);
@@ -44,12 +51,20 @@ const ready = sessionStore.load().then(async (saved) => {
         { tabId: session.tabId },
         "Network.enable",
       );
+      await contentEffector.registerTarget({ tabId: session.tabId });
     } catch {
       session.tabId = null;
       session.pageUrl = null;
       interruptTabRequests(session);
     }
   }
+  const initialPlan = planAdaptation(
+    analyzeBudget(budgetSettings, aggregateMetrics(session).transferredBytes),
+    session,
+  );
+  await contentEffector.recover(
+    initialPlan.mode === "normal" ? null : initialPlan.tabId,
+  );
   await synchronizeAdaptation();
 });
 
@@ -61,7 +76,8 @@ async function synchronizeAdaptation() {
   const plan = planAdaptation(analysis, session);
   try {
     const applied = await effector.apply(plan);
-    adaptation = { ...analysis, ...plan, ...applied, error: null };
+    const content = await contentEffector.apply(plan);
+    adaptation = { ...analysis, ...plan, ...applied, ...content, error: null };
   } catch {
     adaptation = {
       ...analysis,
@@ -69,7 +85,7 @@ async function synchronizeAdaptation() {
       ...effector.applied,
       desiredMode: plan.mode,
       error:
-        "O Chrome não confirmou as regras. A proteção pretendida pode não estar ativa. Tente salvar a configuração novamente.",
+        "Não foi possível confirmar toda a adaptação de rede e reprodução. O modo pretendido pode não estar completamente ativo. Tente salvar a configuração novamente.",
     };
   }
 }
@@ -141,6 +157,7 @@ async function releaseCurrentTab() {
   if (tabId !== null) {
     interruptTabRequests(session, tabId);
     await synchronizeAdaptation();
+    contentEffector.forgetTab(tabId);
     await detachSensor(tabId).catch(() => {});
   }
 }
@@ -169,6 +186,7 @@ async function followTab(tab) {
   try {
     await synchronizeAdaptation();
     await attachSensor(tab.id);
+    await contentEffector.registerTarget({ tabId: tab.id });
     if (session.notice.startsWith("Não foi possível observar esta aba"))
       session.notice = "";
   } catch {
@@ -234,6 +252,7 @@ async function handle(message) {
       session.recording = true;
       try {
         await attachSensor(tab.id);
+        await contentEffector.registerTarget({ tabId: tab.id });
       } catch {
         session = previous;
         throw new Error(
@@ -247,8 +266,11 @@ async function handle(message) {
       if (session?.recording) {
         const tabId = session.tabId;
         stopSession(session);
-        if (tabId !== null) await detachSensor(tabId).catch(() => {});
         await publish();
+        if (tabId !== null) {
+          contentEffector.forgetTab(tabId);
+          await detachSensor(tabId).catch(() => {});
+        }
       }
       return snapshot();
     }
@@ -287,6 +309,13 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
     automatic(() => followActiveTab(windowId));
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (
+    change.mutedInfo?.muted === false &&
+    session?.recording &&
+    session.tabId === tabId &&
+    adaptation?.playbackBlocked
+  )
+    automatic(publish);
   if (tab.active && (change.url || change.status === "loading"))
     automatic(async () => {
       const current = await chrome.tabs.get(tabId);
@@ -297,18 +326,15 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
   void ready.then(async () => {
     if (!session?.recording || source.tabId !== session.tabId) return;
     if (method === "Target.attachedToTarget") {
-      const current = session;
       const child = { tabId: source.tabId, sessionId: params.sessionId };
+      // Resume before evaluating the DOM: creating an isolated world in a
+      // paused child can otherwise deadlock a parent navigation/refresh.
       try {
         await enableTarget(child);
       } catch {
-        if (
-          session === current &&
-          session.recording &&
-          session.tabId === source.tabId
-        ) {
+        if (session?.recording && session.tabId === source.tabId) {
           session.notice =
-            "Um iframe ou worker não pôde ser instrumentado. A cobertura é parcial.";
+            "Um contexto não pôde ser instrumentado. A cobertura é parcial.";
           schedulePublish();
         }
       } finally {
@@ -316,6 +342,21 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
           .sendCommand(child, "Runtime.runIfWaitingForDebugger")
           .catch(() => {});
       }
+      automatic(async () => {
+        if (session?.recording && session.tabId === source.tabId)
+          await contentEffector.registerTarget(child, params.targetInfo.type);
+      });
+      return;
+    }
+    if (method === "Target.detachedFromTarget") {
+      contentEffector.forgetTarget({
+        tabId: source.tabId,
+        sessionId: params.sessionId,
+      });
+      return;
+    }
+    if (method === "Page.frameNavigated") {
+      automatic(() => contentEffector.refreshTarget(source));
       return;
     }
     if (
@@ -355,3 +396,8 @@ chrome.tabs.onRemoved.addListener((tabId) =>
     }
   }),
 );
+
+// Renew the page guard lease while the monitored tab is restricted.
+setInterval(() => {
+  if (session?.recording && adaptation?.playbackBlocked) automatic(publish);
+}, 2000);

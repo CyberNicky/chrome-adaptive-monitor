@@ -20,24 +20,11 @@ export function createBudgetSettings(value, now = Date.now()) {
     throw new Error(
       "A franquia deve representar uma quantidade válida de bytes.",
     );
-  const economyPercent = Number(value?.economyPercent ?? 70);
-  const restrictedPercent = Number(value?.restrictedPercent ?? 90);
-  if (
-    !Number.isFinite(economyPercent) ||
-    !Number.isFinite(restrictedPercent) ||
-    economyPercent <= 0 ||
-    economyPercent >= restrictedPercent ||
-    restrictedPercent > 100
-  )
-    throw new Error("Defina limites válidos: 0 < X < Y ≤ 100%.");
-
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     planName,
     dataAmount,
     dataUnit,
-    economyPercent,
-    restrictedPercent,
     adaptiveEnabled: value?.adaptiveEnabled !== false,
     updatedAt: now,
   };
@@ -48,7 +35,10 @@ export const budgetStore = {
     const saved = (await chrome.storage.local.get(KEY))[KEY];
     if (!saved) return null;
     try {
-      return createBudgetSettings(saved, saved.updatedAt);
+      const normalized = createBudgetSettings(saved, saved.updatedAt);
+      if (saved.schemaVersion !== 3)
+        await chrome.storage.local.set({ [KEY]: normalized });
+      return normalized;
     } catch {
       return null;
     }

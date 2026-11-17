@@ -20,9 +20,9 @@ export function planAdaptation(analysis, session) {
           : !active
             ? "Aguardando uma aba HTTP(S)."
             : mode === "restricted"
-              ? "Limite Y atingido: novas imagens, áudios e vídeos serão bloqueados."
+              ? "Meta de preservação atingida: imagens ocultas e reprodução de áudio e vídeo interrompida. Novos downloads também são bloqueados."
               : mode === "economy"
-                ? "Limite X atingido: novos áudios e vídeos serão bloqueados. Texto e imagens continuam permitidos."
-                : "Consumo abaixo do limite X: recursos permitidos.",
+                ? "Meta de economia atingida: reprodução de áudio e vídeo interrompida e novos downloads bloqueados. Texto e imagens continuam permitidos."
+                : "Consumo dentro da meta do sistema: recursos permitidos.",
   };
 }

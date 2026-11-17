@@ -1,6 +1,6 @@
 # Continuação do desenvolvimento
 
-A versão 0.4.0 entrega somente o item 1 solicitado em 17/11/2026: adaptação por limites X/Y na captura atual. Aguardar os testes do usuário antes de avançar.
+A versão 0.5.0 entrega somente o item 1 solicitado em 17/11/2026: adaptação por limites X/Y na captura atual. Aguardar os testes do usuário antes de avançar.
 
 Próximos incrementos, um por vez: **item 2**, período/duração da franquia e renovação; **item 3**, alertas e uso acumulado persistente; **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-1.md](TESTE-ETAPA-1.md).
 
@@ -12,13 +12,13 @@ Critério de conclusão: cenários reproduzíveis com cobertura documentada e di
 
 ## 2. Ampliar Conhecimento
 
-A configuração básica de plano e franquia já é persistida localmente. Falta acrescentar período do orçamento, prioridades e exceções por domínio. Definir retenção e consentimento para histórico permanente. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas. O modo de economia será estado do ciclo autoadaptativo, e não uma preferência manual.
+A configuração básica de plano e franquia já é persistida localmente. As metas de adaptação são internas ao sistema. Falta acrescentar período do orçamento, prioridades e exceções por domínio. Definir retenção e consentimento para histórico permanente. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas. O modo de economia será estado do ciclo autoadaptativo, e não uma preferência manual.
 
 Critério de conclusão: configurar e recuperar orçamento e exceções, com testes das unidades, período e reinicialização do orçamento.
 
 ## 3. Ampliar Análise
 
-O verificador de orçamento e a identificação da necessidade por X/Y estão implementados para a captura atual. Falta avaliar o ritmo em relação ao período da franquia e definir histerese se os testes indicarem necessidade. Os valores iniciais de 70%/90% são experimentais e editáveis. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
+O verificador de orçamento e a identificação da necessidade por X/Y estão implementados para a captura atual. Falta avaliar o ritmo em relação ao período da franquia e definir histerese se os testes indicarem necessidade. Os valores internos de 70%/90% são experimentais e definidos pela política do sistema, sem edição na interface do usuário. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
 
 Critério de conclusão: dados de entrada conhecidos produzem necessidades de adaptação explicáveis; a incerteza de medição é considerada.
 

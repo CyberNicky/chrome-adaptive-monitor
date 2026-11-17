@@ -69,7 +69,7 @@ function renderAdaptation() {
     restricted: "Restritivo",
   };
   const mode = a?.mode ?? "normal";
-  const label = a?.error ? "Falha nas regras" : names[mode];
+  const label = a?.error ? "Falha ao aplicar" : names[mode];
   $("mode-indicator").querySelector("strong").textContent = label;
   $("mode-indicator").dataset.mode = mode;
   $("mode-indicator").setAttribute(
@@ -78,7 +78,7 @@ function renderAdaptation() {
   );
   $("mode-indicator").title = a?.error ?? a?.reason ?? "Recursos permitidos";
   $("adaptation-summary").textContent = a?.error
-    ? "Falha ao atualizar as regras. O modo pretendido pode não estar ativo; confira a mensagem abaixo."
+    ? "Falha ao aplicar a adaptação. O modo pretendido pode não estar ativo; confira a mensagem abaixo."
     : (a?.reason ?? "Configure o orçamento para ativar a economia automática.");
   $("adaptation-usage").textContent = a?.configured
     ? `${formatBytes(a.consumedBytes)} de ${formatBytes(a.totalBytes)} · ${a.usedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% utilizado nesta captura · saldo estimado ${formatBytes(a.remainingBytes)}`
@@ -92,8 +92,6 @@ function fillSettingsForm() {
   $("plan-name").value = budgetSettings?.planName ?? "";
   $("data-amount").value = budgetSettings?.dataAmount ?? "";
   $("data-unit").value = budgetSettings?.dataUnit ?? "GB";
-  $("economy-percent").value = budgetSettings?.economyPercent ?? 70;
-  $("restricted-percent").value = budgetSettings?.restrictedPercent ?? 90;
   $("adaptive-enabled").checked = budgetSettings?.adaptiveEnabled ?? true;
   $("settings-error").hidden = true;
 }
@@ -453,8 +451,6 @@ $("settings-form").addEventListener("submit", async (event) => {
         planName: form.get("planName"),
         dataAmount: form.get("dataAmount"),
         dataUnit: form.get("dataUnit"),
-        economyPercent: form.get("economyPercent"),
-        restrictedPercent: form.get("restrictedPercent"),
         adaptiveEnabled: $("adaptive-enabled").checked,
       },
     });
