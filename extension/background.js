@@ -245,6 +245,8 @@ async function publish() {
         budgetUsage?.cycle,
       ),
       mode: adaptation?.mode ?? "normal",
+      decisionSource: adaptation?.decisionSource,
+      reason: adaptation?.reason,
     },
   );
   const value = snapshot();

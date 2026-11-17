@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.10.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além do cache da captura ativa e do histórico local de sessões. Alertas persistentes e consulta ao histórico de sessões anteriores estão disponíveis.
+A entrega 0.11.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas e avalia o ritmo em relação ao tempo restante; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além do cache da captura ativa e do histórico local de sessões. Alertas persistentes e consulta ao histórico de sessões anteriores estão disponíveis.
 
 ## Fluxo implementado
 
@@ -12,7 +12,7 @@ flowchart LR
     Classificador --> Estimador[Estimador de consumo]
     Estimador --> Agregador[Agregador de métricas]
     Coletor --> Conhecimento[Conhecimento: sessão e ciclo da franquia]
-    Agregador --> Analise[Análise: consumo do ciclo vs metas]
+    Agregador --> Analise[Análise: orçamento e ritmo do ciclo]
     Conhecimento --> Analise
     Analise --> Plano[Planejamento: selecionar modo]
     Plano --> Execucao[Execução: traduzir regras]
@@ -22,7 +22,7 @@ flowchart LR
     Conhecimento --> Painel
 ```
 
-As regras atuam sobre novas requisições. Após cada lote de observações, o controlador reavalia os limites, atualiza o plano e publica o modo confirmado pela API. Isso cria um feedback básico de consumo, sem ainda analisar ritmo em relação ao tempo restante da franquia.
+As regras atuam sobre novas requisições. Após cada lote de observações, o controlador reavalia os limites, atualiza o plano e publica o modo confirmado pela API. Desde 0.11.0, esse feedback também avalia o ritmo em relação ao tempo restante da franquia.
 
 | Componente da figura    | Arquivo                                         | Responsabilidade atual                                                           |
 | ----------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -53,7 +53,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 ![Figura fornecida pela equipe](arquitetura-referencia.png)
 
-Análise, Planejamento, Execução e Efetor já possuem implementações básicas na etapa 1. Avaliação do ritmo por período, exceções e histórico permanente continuam na evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md).
+Análise, Planejamento, Execução e Efetor já possuem implementações básicas na etapa 1. Histórico persistente e avaliação do ritmo por período já estão disponíveis. Prioridades e exceções continuam na evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md).
 
 ## Troca automática de abas (0.2.0)
 
@@ -82,7 +82,7 @@ As regras de sessão usam IDs reservados 9001 a 9004 e nunca bloqueiam tipos HTM
 
 A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Dados já recebidos não são recuperáveis; o controle complementar da versão 0.5.0 pausa a reprodução e oculta imagens em elementos suportados.
 
-Na versão 0.4.0, a base era exclusivamente a captura; desde 0.6.0, usa-se a soma persistente do ciclo entre reinicializações. O avaliador de ritmo em relação ao período da franquia, o gerenciador de exceções e o histórico persistente ainda não estão implementados.
+Na versão 0.4.0, a base era exclusivamente a captura; desde 0.6.0, usa-se a soma persistente do ciclo entre reinicializações. O histórico persistente foi acrescentado em 0.10.0 e o avaliador de ritmo em 0.11.0. O gerenciador de exceções permanece pendente.
 
 ## Metas do sistema e controle da reprodução (0.5.0)
 
@@ -96,7 +96,7 @@ Há uma ampliação concreta do ponto de atuação: além da filtragem das requi
 
 Ao voltar a Normal, desativar, encerrar ou liberar uma aba, a extensão restaura suas alterações sem iniciar áudio automaticamente nem desfazer um silenciamento prévio do usuário. O controle da página tem uma duração renovada enquanto a captura está ativa; se a extensão for desconectada/recarregada, ele expira e restaura a página. O reinício também recupera silenciamento que tenha sido deixado pela própria extensão.
 
-Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. O calendário foi acrescentado na versão 0.6.0 e os alertas na 0.7.0; o histórico de sessões segue como próximo incremento.
+Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. O calendário foi acrescentado na versão 0.6.0 e os alertas na 0.7.0; o histórico de sessões foi acrescentado em 0.10.0.
 
 ## Calendário e consumo da franquia (0.6.0 / item 2)
 
@@ -106,7 +106,7 @@ Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar nova
 
 O controlador reconcilia o período, agenda `chrome.alarms`, persiste o acumulado e entrega consumo e calendário à Análise. A renovação recalcula o plano e restaura Normal quando aplicável. Iniciar/limpar captura ou reiniciar o navegador não apaga o acumulado do ciclo. Alterações do plano preservam o valor já observado. O painel distingue consumo da franquia de métricas da captura; persistência com falha é informada ao usuário.
 
-Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. O histórico consultável foi acrescentado na versão 0.10.0; os alertas estão disponíveis desde 0.7.0.
+Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. Desde 0.11.0, o período também alimenta a avaliação do ritmo diário, somada à proteção de 70%/90% do total. O histórico consultável foi acrescentado na versão 0.10.0; os alertas estão disponíveis desde 0.7.0.
 
 O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova persistência, inicia outra captura sob a mesma franquia e dispara um alarme real com relógio controlado no teste, verificando renovação sem consulta do painel e retirada dos bloqueios. O produto não possui mecanismo de teste para forçar datas ou zerar o consumo. O contador segue limitado às medições retidas e aos períodos efetivamente monitorados; não representa a fatura da operadora.
 
@@ -138,4 +138,21 @@ O cache vivo em `session-store.js` continua separado. Na inicialização do work
 
 O controlador publica apenas resumos do histórico. O comando `GET_HISTORY_SESSION` busca detalhes sob demanda, sem substituir a captura viva no backend. A interface mantém uma seleção de consulta separada, compartilhando os componentes de métricas, ranking, filtros, tabela e exportação. O retorno à captura atual não exige reconectar o sensor. A exclusão altera somente o repositório de histórico, com proteção contra excluir a captura ainda ativa, e mantém o contador da franquia.
 
-Os testes de unidade cobrem recuperação, imutabilidade, retenção por quantidade/bytes e falhas. O teste `history-browser.js` consulta a primeira sessão enquanto a segunda recebe recursos, exporta o snapshot original após editar o plano atual, exclui o registro e fecha o Chrome sem encerrar a captura. Ao reabrir, verifica os dados recuperados e a ausência de dupla contagem da franquia. Isso implementa o histórico de consumo por sessão da base de Conhecimento, sem implicar que prioridades, exceções, avaliação do ritmo por ciclo ou toda a arquitetura MAPE-K estejam concluídos.
+Os testes de unidade cobrem recuperação, imutabilidade, retenção por quantidade/bytes e falhas. O teste `history-browser.js` consulta a primeira sessão enquanto a segunda recebe recursos, exporta o snapshot original após editar o plano atual, exclui o registro e fecha o Chrome sem encerrar a captura. Ao reabrir, verifica os dados recuperados e a ausência de dupla contagem da franquia. Isso implementa o histórico de consumo por sessão da base de Conhecimento, sem implicar que prioridades, exceções ou toda a arquitetura MAPE-K estejam concluídos.
+
+
+## Avaliador do ritmo de consumo (0.11.0)
+
+`analysis/consumption-pace.js` implementa o **Avaliador do ritmo de consumo** previsto na figura. Recebe orçamento total, consumo acumulado, calendário do ciclo e instante atual. Calcula dias decorridos/restantes com frações proporcionais ao intervalo real do ciclo, média diária, saldo diário sustentável e projeção linear até a renovação:
+
+- média diária = consumo observado / dias decorridos;
+- saldo diário sustentável = saldo estimado / dias restantes;
+- projeção = média diária × duração do ciclo.
+
+A política v2 em Conhecimento mantém 70%/90% e acrescenta as metas experimentais de projeção 110%/150%, após um dia decorrido. Antes disso, não toma decisões por projeção. Ciclo ausente, futuro ou vencido não produz projeção. O analisador de orçamento combina as duas necessidades pela maior severidade, registra `decisionSource` e entrega o resultado ao Planejamento. O motivo identifica quando a adaptação foi antecipada pelo ritmo. Execução e efetores reutilizam os modos existentes.
+
+O controlador reavalia durante publicações de captura, consultas, inicialização e alarmes do calendário, sem depender de manter o painel aberto. Com o avanço do tempo, pode retornar a um modo menos restritivo se a projeção cair e as metas absolutas permitirem; a renovação reinicia consumo e projeção. Não há histerese adicional nesta política inicial.
+
+O painel apresenta ritmo, saldo diário e projeção. O cartão da página acrescenta o motivo quando a decisão vem do ritmo, mantendo posição, tamanho e cores. Não acrescenta notificações nativas por projeção; os alertas persistentes de percentual seguem os marcos anteriores. O histórico guarda o contexto da análise no snapshot já existente.
+
+A média usa todo o tempo do ciclo e somente consumo observado, inclusive se a extensão foi instalada no meio do período. Períodos sem captura não são reconstruídos. Trata-se de projeção experimental do consumo observado, sem garantia de cobertura da franquia real. Validar os parâmetros em cenários controlados continua necessário. Testes e roteiro em [TESTE-RITMO.md](TESTE-RITMO.md).

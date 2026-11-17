@@ -92,6 +92,12 @@ function renderAdaptation() {
   $("adaptation-usage").textContent = a?.configured
     ? `${formatBytes(a.consumedBytes)} de ${formatBytes(a.totalBytes)} · ${a.usedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% utilizado neste ciclo · saldo estimado ${formatBytes(a.remainingBytes)}`
     : "Sem orçamento configurado.";
+  const pace = a?.pace;
+  $("consumption-pace").textContent = pace?.status === "ready"
+    ? `Ritmo observado: ${formatBytes(pace.averageDailyBytes)}/dia · saldo permite ${formatBytes(pace.sustainableDailyBytes)}/dia até renovar · projeção no fim do ciclo: ${formatBytes(pace.projectedBytes)} (${pace.projectedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da franquia).`
+    : pace?.status === "collecting"
+      ? "Análise de ritmo disponível após o primeiro dia do ciclo."
+      : "";
   $("billing-cycle-status").textContent = a?.cycle
     ? describeCycle(a.cycle)
     : "";

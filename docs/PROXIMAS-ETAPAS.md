@@ -1,6 +1,6 @@
 # Continuação do desenvolvimento
 
-A versão 0.10.0 entrega os quatro incrementos solicitados: modos por metas internas, ciclo da franquia, alertas e consulta persistente às sessões anteriores. Aguardar os testes do usuário antes de ampliar o escopo.
+A versão 0.11.0 acrescenta análise do ritmo e projeção até renovar aos quatro incrementos solicitados: modos por metas internas, ciclo da franquia, alertas e consulta persistente às sessões anteriores. Aguardar os testes do usuário antes de ampliar o escopo.
 
 O roteiro desta entrega está em [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md). As evoluções abaixo continuam propostas para a arquitetura completa.
 
@@ -18,7 +18,7 @@ Critério de conclusão: configurar e recuperar orçamento e exceções, com tes
 
 ## 3. Ampliar Análise
 
-O verificador de orçamento e a identificação da necessidade por X/Y estão implementados para o acumulado do ciclo. Falta avaliar o ritmo em relação ao período da franquia e definir histerese se os testes indicarem necessidade. Os valores internos de 70%/90% são experimentais e definidos pela política do sistema, sem edição na interface do usuário. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
+O verificador de orçamento e a identificação da necessidade por X/Y estão implementados para o acumulado do ciclo. O avaliador de ritmo foi implementado em 0.11.0, com projeção linear após o primeiro dia e antecipação dos modos em 110%/150%. Falta calibrar os parâmetros com cenários de uso, considerar a cobertura parcial da captura e definir histerese se os testes indicarem necessidade. Os valores internos de 70%/90% são experimentais e definidos pela política do sistema, sem edição na interface do usuário. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
 
 Critério de conclusão: dados de entrada conhecidos produzem necessidades de adaptação explicáveis; a incerteza de medição é considerada.
 

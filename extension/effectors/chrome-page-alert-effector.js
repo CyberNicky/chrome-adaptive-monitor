@@ -99,6 +99,11 @@ export function createPageAlertEffector({ sendCommand }) {
           maximumFractionDigits: 1,
         }),
       };
+      if (analysis.decisionSource === "pace" && mode !== "normal")
+        payload.current = {
+          ...payload.current,
+          message: `${payload.current.message} ${analysis.reason}`,
+        };
       const serialized = JSON.stringify(payload);
       if (
         activeTab === target &&
