@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-O projeto completo busca gerenciar um orçamento de dados com o ciclo MAPE-K. A entrega atual implementa **M** e parte de **K**: guarda uma sessão observada e a configuração persistente de plano e franquia. O modo atual é apenas apresentado na interface; futuramente será definido pelo ciclo autoadaptativo, não pelo usuário. Não existe ciclo autoadaptativo completo ainda.
+A entrega 0.4.0 implementa monitoramento e um ciclo básico de adaptação por consumo: a Análise compara os bytes da captura com X/Y; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém os parâmetros persistentes e os registros temporários. Ainda não há ciclo mensal, contador persistente de uso, alertas ou histórico de sessões anteriores.
 
 ## Fluxo implementado
 
@@ -12,11 +12,17 @@ flowchart LR
     Classificador --> Estimador[Estimador de consumo]
     Estimador --> Agregador[Agregador de métricas]
     Coletor --> Conhecimento[Conhecimento: sessão temporária]
+    Agregador --> Analise[Análise: consumo vs X/Y]
+    Conhecimento --> Analise
+    Analise --> Plano[Planejamento: selecionar modo]
+    Plano --> Execucao[Execução: traduzir regras]
+    Execucao --> Efetor[Efetor: updateSessionRules por aba]
+    Efetor --> Chrome
     Agregador --> Painel[Painel da extensão / JSON]
     Conhecimento --> Painel
 ```
 
-Não há seta de atuação sobre o Chrome nesta versão. A instrumentação do sensor permite observar a rede; nenhum plano de adaptação ou regra de filtragem é emitido.
+As regras atuam sobre novas requisições. Após cada lote de observações, o controlador reavalia os limites, atualiza o plano e publica o modo confirmado pela API. Isso cria um feedback básico de consumo, sem ainda analisar ritmo em relação ao tempo restante da franquia.
 
 | Componente da figura    | Arquivo                                         | Responsabilidade atual                                                          |
 | ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -26,7 +32,7 @@ Não há seta de atuação sobre o Chrome nesta versão. A instrumentação do s
 | Estimador               | `extension/monitoring/consumption-estimator.js` | Interpreta tamanho conhecido, parcial, cache e indisponibilidade                |
 | Agregador               | `extension/monitoring/metrics-aggregator.js`    | Consolida bytes e contadores por recurso/domínio e média por minuto             |
 | Conhecimento            | `extension/knowledge/`                          | Guarda a sessão temporária e a configuração persistente do orçamento            |
-| Controlador da extensão | `extension/background.js`                       | Coordena sensor, sessão e mensagens; não decide políticas de economia           |
+| Controlador da extensão | `extension/background.js`                       | Coordena sensor, sessão, mensagens e o ciclo de adaptação                       |
 | Interface               | `extension/ui/`                                 | Apresenta dados, controla captura e exporta evidências                          |
 
 O controlador faz a ligação entre componentes. O coletor chama o classificador ao receber metadados; o agregador consulta o estimador ao consolidar os registros. O fluxo do diagrama é lógico, sem criar processos ou microserviços para cada caixa. Os módulos são JavaScript com ES Modules e não exigem bundler, facilitando carregar o protótipo e depurá-lo.
@@ -39,7 +45,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 **Contextos filhos.** A instrumentação usa sessões CDP planas, disponíveis via `chrome.debugger` a partir do Chrome 125. Novos iframes/workers dedicados são instrumentados antes de continuar sua execução, reduzindo a perda de eventos iniciais. Isso pode introduzir atraso de instrumentação. IDs são isolados por contexto; transições de alvo com ID inequívoco podem ser correlacionadas. Contextos não instrumentados podem deixar cobertura parcial.
 
-**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano e franquia são persistidos localmente, mas ainda não são avaliados nem aplicados. O indicador de modo permanece Normal até a implementação da análise e do planejamento automáticos. Período do orçamento, prioridades, regras e exceções ainda não existem. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
+**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia, X/Y e ativação automática persistem localmente e já são avaliados. O consumo considerado ainda é o da captura atual. Período da franquia, histórico permanente, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
 
 **Interface persistente.** O painel usa conexão de mensagens para receber atualizações agrupadas em intervalos de 250 ms, evitando renderizar a cada pacote recebido. A tabela apresenta 100 registros por vez, com opção de mostrar mais; as métricas incluem todos os registros retidos. A captura continua ao fechar o painel, até ser encerrada ou desconectada.
 
@@ -47,7 +53,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 ![Figura fornecida pela equipe](arquitetura-referencia.png)
 
-Análise, Planejamento, Execução e Efetor permanecem como evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md). Evitamos criar implementações vazias que poderiam ser confundidas com funcionalidades prontas.
+Análise, Planejamento, Execução e Efetor já possuem implementações básicas na etapa 1. Avaliação do ritmo por período, exceções, alertas e histórico permanente continuam na evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md).
 
 ## Troca automática de abas (0.2.0)
 
@@ -61,4 +67,19 @@ Páginas internas/vazias deixam a sessão em espera, e a navegação posterior p
 
 O **Agregador de Métricas** também consolida os registros por `tabId` em `metrics.byTab`. Para cada aba, mantém transferência observada, contagem de requisições, pendências e tamanhos desconhecidos. Os subtotais são ordenados por bytes decrescentes, com ordem original da aba nos empates; sua soma equivale ao total observado da sessão. Registros antigos sem `tabId` são associados ao alvo original da sessão.
 
-A interface apresenta esse resultado em um ranking global, separado dos filtros da tabela, e destaca a maior transferência positiva (incluindo empates). Essa consolidação implementa uma responsabilidade do Agregador já previsto na arquitetura. Não representa uma análise de orçamento ou uma decisão de adaptação: Análise, Planejamento e Execução continuam como etapas futuras.
+A interface apresenta esse resultado em um ranking global, separado dos filtros da tabela, e destaca a maior transferência positiva (incluindo empates). Essa consolidação implementa uma responsabilidade do Agregador já previsto na arquitetura. O ranking continua sendo uma agregação. A decisão de adaptação é feita separadamente pelo analisador de orçamento e pelo planejador adicionados na versão 0.4.0.
+
+## Componentes de adaptação (0.4.0 / item 1)
+
+| Responsabilidade                              | Arquivo                                          | Comportamento                                                                          |
+| --------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Verificar orçamento e identificar necessidade | `extension/analysis/budget-analyzer.js`          | Compara transferência da captura com os limites, calcula percentual e saldo estimado   |
+| Selecionar modo e gerar plano                 | `extension/planning/adaptation-planner.js`       | Normal abaixo de X, Econômico em X, Restritivo em Y; mantém motivo explícito           |
+| Traduzir regras                               | `extension/execution/rule-translator.js`         | Gera regras para mídia/imagem e caminhos comuns de arquivos via Fetch/XHR              |
+| Emitir/aplicar comandos                       | `extension/effectors/chrome-request-effector.js` | Substitui atomicamente apenas as regras próprias, com `tabIds`, e confirma o resultado |
+
+As regras de sessão usam IDs reservados 9001 a 9004 e nunca bloqueiam tipos HTML, CSS, scripts ou fontes. Ao trocar de aba, o controlador remove as regras do alvo anterior antes de instalar as do novo. Encerrar, desativar a economia ou voltar a Normal remove os bloqueios. A fila do controlador serializa comandos e atualizações, evitando concorrência entre troca de aba e aplicação das regras.
+
+A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Conteúdo já recebido não é removido.
+
+Esta etapa usa exclusivamente a transferência da captura atual, não a soma entre reinicializações. O avaliador de ritmo em relação ao período da franquia, o gerenciador de exceções e o histórico persistente ainda não estão implementados.

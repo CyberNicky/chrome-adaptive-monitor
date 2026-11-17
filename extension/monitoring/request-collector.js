@@ -125,6 +125,7 @@ export function collectEvent(
       break;
     case "Network.loadingFailed":
       row.error = params.errorText ?? "Falha de rede";
+      row.blocked = row.error === "net::ERR_BLOCKED_BY_CLIENT";
       finish(row, params.timestamp, "failed");
       delete session.active[key];
       break;

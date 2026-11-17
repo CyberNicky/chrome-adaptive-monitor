@@ -22,9 +22,9 @@ for (const file of [
 if (
   manifest.host_permissions ||
   manifest.permissions.some((p) =>
-    /declarativeNetRequest|webRequestBlocking/.test(p),
+    /webRequestBlocking|declarativeNetRequestWithHostAccess/.test(p),
   )
 )
-  throw new Error("Este protótipo deve apenas observar.");
+  throw new Error("Use regras declarativas sem acesso global aos hosts.");
 await Promise.all(["extension", "demo", "scripts", "tests"].map(checkJs));
 console.log("Manifesto, arquivos e sintaxe JavaScript válidos.");

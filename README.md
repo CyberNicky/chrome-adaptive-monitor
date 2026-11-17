@@ -1,10 +1,10 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. Esta entrega implementa o monitoramento e a configuração persistente do orçamento; as decisões e regras de adaptação ficam para as próximas etapas.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.4.0 implementa a primeira etapa de adaptação: modos Normal, Econômico e Restritivo por limites X/Y do consumo observado na captura atual. Período da franquia, alertas e histórico de sessões anteriores ficam para as próximas entregas, uma de cada vez.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
-O botão de engrenagem no topo permite registrar o nome do plano e a franquia total em MB ou GB. Essa configuração fica em armazenamento local e é recuperada ao reabrir o navegador. Antes da engrenagem, o cabeçalho mostra o total configurado e o modo de economia atual. O modo não é escolhido pelo usuário: futuramente será alterado pelo ciclo autoadaptativo conforme o consumo. Nesta etapa ele permanece Normal e ainda não altera requisições nem ativa regras de economia.
+O botão de engrenagem permite configurar plano, franquia em MB/GB, limites X e Y (inicialmente 70% e 90%) e ativar/desativar a economia automática. O modo muda automaticamente durante a captura. **O consumo desta etapa é somente o da captura atual, não o da franquia mensal real.** A configuração persiste; os contadores ainda não são um histórico permanente.
 
 ![Painel com requisições reais da demonstração local](docs/painel.png)
 
@@ -39,8 +39,8 @@ Veja o [roteiro de apresentação](docs/DEMONSTRACAO.md), o [mapeamento da arqui
 | Classificador de recursos                | HTML, CSS, JavaScript, imagem, áudio, vídeo, mídia, fonte, Fetch/XHR e outros                   |
 | Estimador de consumo                     | Usa bytes recebidos informados pelo Chrome; mantém valores parciais ou desconhecidos explícitos |
 | Agregador de métricas                    | Totais, tipos, domínios, ritmo médio, cache, pendências e falhas                                |
-| Conhecimento                             | Sessão temporária e configuração persistente do orçamento e do plano                             |
-| Análise, Planejamento, Execução e Efetor | Planejados; sem decisões automáticas ou regras de bloqueio nesta versão                         |
+| Conhecimento                             | Sessão temporária e configuração persistente do orçamento e do plano                            |
+| Análise, Planejamento, Execução e Efetor | Comparam consumo com X/Y, selecionam o modo e aplicam regras declarativas por aba               |
 
 O sistema gerenciado continua sendo **o carregamento de recursos no Chrome**. Os sensores são implementados na extensão e interagem com as APIs do navegador. A extensão não injeta scripts na página nem modifica o HTML/DOM.
 
@@ -64,7 +64,7 @@ São unidades decimais: **1 kB = 1.000 B; 1 MB = 1.000.000 B**. O total não equ
 - Sem coleta de corpos das respostas, cookies ou cabeçalhos de autenticação. URLs são armazenadas sem query string, fragmento ou credenciais. Caminhos ainda podem conter informações pessoais; revise o JSON antes de compartilhar.
 - Sem servidor de telemetria. O servidor da demo atende apenas no loopback `127.0.0.1`.
 - Páginas internas e protegidas do Chrome não podem ser monitoradas. Iframes e workers instrumentados são observados, mas há limites de cobertura em transições de contexto, service workers e conexões de longa duração.
-- Permissões: `debugger` observa a rede da aba selecionada; `tabs` identifica o alvo e detecta mudanças de aba; `sidePanel` apresenta o painel; `storage` mantém a sessão. A permissão de depuração é ampla, mas o código só habilita observação de rede e instrumentação de contextos.
+- Permissões: `debugger` observa a rede da aba selecionada; `tabs` identifica o alvo e detecta mudanças de aba; `sidePanel` apresenta o painel; `storage` mantém a sessão e a configuração; `declarativeNetRequest` bloqueia novos recursos conforme o modo. A permissão de depuração é ampla, mas o código só habilita observação de rede e instrumentação de contextos.
 
 ## Desenvolvimento e verificação
 
@@ -90,10 +90,30 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.3.0** acompanha as abas automaticamente depois do primeiro clique em **Iniciar captura** e apresenta o ranking de consumo por aba.
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.4.0** mantém o monitoramento e o ranking, e acrescenta os modos automáticos de economia. O Chrome pode solicitar a nova permissão para bloquear conteúdo. Confira as instruções de teste da etapa 1 abaixo.
 
 ## Comparar o consumo das abas
 
 A seção **Consumo por aba** ordena as abas pelo total de bytes observados e destaca a maior transferência positiva. Empates no maior valor são sinalizados; sem bytes conhecidos, nenhuma aba é declarada vencedora. Cada linha mostra quantidade de requisições, pendências, tamanhos desconhecidos e participação no total observado. O botão **Ver requisições** seleciona a aba e limpa os filtros de busca/tipo para mostrar seus recursos. Os subtotais também entram no JSON em `metrics.byTab`.
 
 O ranking, os cartões e o gráfico por recurso mostram o acumulado da sessão inteira, independente dos filtros da tabela. O subtotal de uma aba inclui todas as navegações observadas nela; o endereço exibido identifica o último site visitado, não uma soma exclusiva daquele site. Somente os períodos monitorados são comparados, sem normalização por tempo. Recursos com tamanho desconhecido ficam fora da soma; uma aba com todas as requisições sem tamanho exibe **—**, e uma aba sem requisições ou apenas com transferência conhecida de zero exibe **0 B**.
+
+## Etapa 1: testar os três modos
+
+1. Recarregue o Navega em `chrome://extensions` e reabra o painel.
+2. Na engrenagem, configure um plano com **1 MB**, **X = 70%**, **Y = 90%** e economia automática ativa. Salve. Os limites devem obedecer `0 < X < Y <= 100`.
+3. Execute `npm run demo`, abra `http://127.0.0.1:4173`, inicie a captura e recarregue a página.
+4. Em **Normal**, teste imagens e mídia: tudo deve carregar.
+5. Use **Consumir 100 kB de teste** até o modo confirmado ser **Econômico**. Novos áudios e vídeos serão bloqueados, enquanto imagens e texto continuam permitidos.
+6. Continue até **Restritivo**. Novas imagens também serão bloqueadas. Recarregue a página para observar texto sem baixar imagens e mídia novamente.
+7. Para testar a reversão sem perder os registros, aumente a franquia para **10 MB** ou desative a economia automática e salve. A indicação volta a **Normal** e as próximas requisições voltam a carregar. Encerrar a captura também remove as regras.
+
+Os limites são calculados sobre a transferência acumulada de todas as abas observadas nesta captura. Os bloqueios se aplicam somente à aba monitorada; ao mudar de aba, são removidos da anterior e aplicados à nova. HTML, CSS, JavaScript e fontes são preservados. Conteúdo já baixado ou embutido no HTML não é removido; a extensão não recarrega páginas automaticamente.
+
+A implementação usa tipos `media`/`image` e, para Fetch/XHR, extensões de arquivos comuns no caminho da URL. Não bloqueia APIs de texto/JSON genericamente. Players com URLs sem extensão, conteúdo via service worker, blobs, cache e formatos específicos podem exigir tratamento adicional; esta etapa não promete bloquear todo player de qualquer site.
+
+O painel só anuncia o modo após a confirmação das regras pelo Chrome. Essa confirmação da API é diferente de comprovar o bloqueio de todo conteúdo de um site; os testes da demo verificam ambos os pontos. Atualizações são agrupadas (250 ms), portanto requisições já iniciadas antes da aplicação do novo modo podem terminar normalmente.
+
+**Ainda pendentes, para teste incremental:** item 2: datas/ciclo e reinicialização da franquia; item 3: alertas e contador persistente de uso; item 4: consulta de sessões anteriores. Iniciar outra captura ou reiniciar o navegador ainda zera a base de consumo usada por esses limites.
+
+`npm run test:e2e` executa o monitoramento e depois os testes reais dos três modos, com verificação de que recursos bloqueados não chegaram ao servidor, preservação de texto/CSS/JS, escopo por aba e restauração do modo Normal. Evidências em `artifacts/modo-economico.png`, `artifacts/modo-restritivo.png` e `artifacts/adaptation-verification.json`.

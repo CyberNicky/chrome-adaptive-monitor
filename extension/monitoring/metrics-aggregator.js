@@ -8,6 +8,7 @@ export function aggregateMetrics(session, now = Date.now()) {
     unknownSizes: 0,
     pending: 0,
     failures: 0,
+    blocked: 0,
     cached: 0,
     byType: {},
     byDomain: {},
@@ -45,8 +46,9 @@ export function aggregateMetrics(session, now = Date.now()) {
     metrics.unknownSizes += Number(size.transferredBytes === null);
     metrics.pending += Number(row.state === "pending");
     metrics.failures += Number(
-      row.state === "failed" || (row.status ?? 0) >= 400,
+      (!row.blocked && row.state === "failed") || (row.status ?? 0) >= 400,
     );
+    metrics.blocked += Number(Boolean(row.blocked));
     metrics.cached += Number(size.cached);
     for (const [group, key] of [
       [metrics.byType, row.type],

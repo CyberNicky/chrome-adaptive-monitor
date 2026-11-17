@@ -78,6 +78,13 @@ export function createDemoServer() {
           "Content-Length": "12000",
         });
       if (url.pathname === "/audio.wav") return send("audio/wav", audio());
+      if (url.pathname === "/api/payload") {
+        const size = Math.min(
+          1000000,
+          Math.max(1, Number(url.searchParams.get("size")) || 100000),
+        );
+        return send("text/plain", "x".repeat(size));
+      }
       if (url.pathname === "/video.webm")
         return send(
           "video/webm",

@@ -66,3 +66,20 @@ $("contexts").onclick = () => {
     "Iframe e worker criados. As requisições aparecem conforme a instrumentação dos contextos fica disponível.",
   );
 };
+$("consume").onclick = async () => {
+  const button = $("consume");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/payload?size=100000");
+    await response.text();
+    result(
+      "Aproximadamente 100 kB transferidos. Confira o modo confirmado no painel antes de testar novas imagens e mídia.",
+    );
+  } catch {
+    result(
+      "Não foi possível consumir os dados de teste. Confira o servidor local.",
+    );
+  } finally {
+    button.disabled = false;
+  }
+};

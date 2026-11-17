@@ -13,7 +13,8 @@
         ><span class="brand-icon">n</span> navega<span class="brand-dot"
           >.</span
         ></a
-      ><div class="topbar-actions">
+      >
+      <div class="topbar-actions">
         <span
           id="plan-indicator"
           class="header-indicator"
@@ -49,7 +50,7 @@
         >
           <span aria-hidden="true">⚙</span>
         </button>
-        <span class="version">PROTÓTIPO 0.3</span>
+        <span class="version">PROTÓTIPO 0.4</span>
       </div>
     </header>
     <dialog id="settings-dialog" class="settings-dialog">
@@ -101,10 +102,49 @@
             </select>
           </div>
         </fieldset>
+        <fieldset class="form-field">
+          <legend>Limites para troca automática</legend>
+          <div class="threshold-fields">
+            <label for="economy-percent"
+              >X · Econômico a partir de (%)<input
+                id="economy-percent"
+                name="economyPercent"
+                type="number"
+                min="0.01"
+                max="99.99"
+                step="0.01"
+                required
+                value="70"
+            /></label>
+            <label for="restricted-percent"
+              >Y · Restritivo a partir de (%)<input
+                id="restricted-percent"
+                name="restrictedPercent"
+                type="number"
+                min="0.02"
+                max="100"
+                step="0.01"
+                required
+                value="90"
+            /></label>
+          </div>
+        </fieldset>
+        <label class="automatic-toggle"
+          ><input id="adaptive-enabled" type="checkbox" checked />Ativar
+          economia automática durante a captura</label
+        >
         <p class="settings-scope">
-          O modo de economia será escolhido automaticamente conforme o uso. Esta
-          etapa apenas salva o orçamento e ainda não altera o carregamento de
-          recursos.
+          Normal permite recursos; Econômico bloqueia novos áudios e vídeos;
+          Restritivo bloqueia também novas imagens. HTML, CSS, JavaScript e
+          fontes continuam permitidos para manter o texto e a navegação.
+        </p>
+        <p class="settings-scope">
+          Etapa 1: os limites usam o consumo desta captura. Período da franquia,
+          alertas e histórico persistente serão adicionados nas próximas etapas.
+        </p>
+        <p class="settings-scope">
+          Players de streaming com formatos e URLs específicos podem exigir
+          regras adicionais. Conteúdo já baixado ou embutido não é removido.
         </p>
         <p id="settings-error" class="message error" role="alert" hidden></p>
         <div class="dialog-actions">
@@ -152,6 +192,24 @@
       </section>
       <p id="error" class="message error" role="alert" hidden></p>
       <p id="notice" class="message" role="status" hidden></p>
+      <section class="adaptation-status" aria-label="Economia automática">
+        <strong id="adaptation-summary"
+          >Configure o orçamento para ativar a economia automática.</strong
+        >
+        <span id="adaptation-usage">Sem orçamento configurado.</span>
+        <progress
+          id="adaptation-progress"
+          max="100"
+          value="0"
+          aria-label="Orçamento consumido nesta captura"
+        ></progress>
+        <p>
+          As regras atuam nas próximas requisições da aba monitorada. Conteúdo
+          já carregado pode continuar visível; recarregue a página para observar
+          o novo modo.
+        </p>
+      </section>
+      <p id="adaptation-error" class="message error" role="alert" hidden></p>
       <section class="stats" aria-label="Métricas da sessão">
         <article class="stat accent">
           <span class="label">TRANSFERÊNCIA OBSERVADA</span
@@ -299,14 +357,12 @@
       <footer class="architecture">
         <div><strong>M</strong><span>Monitoramento ativo</span></div>
         <span class="connector">→</span>
-        <div class="future"><strong>A</strong><span>Análise</span></div>
+        <div><strong>A</strong><span>Análise</span></div>
         <span class="connector">→</span>
-        <div class="future"><strong>P</strong><span>Planejamento</span></div>
+        <div><strong>P</strong><span>Planejamento</span></div>
         <span class="connector">→</span>
-        <div class="future"><strong>E</strong><span>Execução</span></div>
-        <p>
-          Primeira entrega · observação de recursos, sem adaptação automática
-        </p>
+        <div><strong>E</strong><span>Execução</span></div>
+        <p>Etapa 1 · modos automáticos por consumo da captura atual</p>
       </footer>
     </main>
     <script type="module" src="panel.js"></script>

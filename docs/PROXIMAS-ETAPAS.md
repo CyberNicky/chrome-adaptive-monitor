@@ -1,5 +1,9 @@
 # Continuação do desenvolvimento
 
+A versão 0.4.0 entrega somente o item 1 solicitado em 17/11/2026: adaptação por limites X/Y na captura atual. Aguardar os testes do usuário antes de avançar.
+
+Próximos incrementos, um por vez: **item 2**, período/duração da franquia e renovação; **item 3**, alertas e uso acumulado persistente; **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-1.md](TESTE-ETAPA-1.md).
+
 ## 1. Consolidar o monitoramento
 
 Comparar sessões controladas com o Network do DevTools em execuções separadas; registrar diferenças de cache, compressão, range requests, navegação, service workers e streaming. Medir o custo do sensor e avaliar alternativas como `webRequest` combinado com Resource Timing para reduzir a necessidade de depuração. Definir formalmente quais métricas são confiáveis para a análise.
@@ -12,21 +16,21 @@ A configuração básica de plano e franquia já é persistida localmente. Falta
 
 Critério de conclusão: configurar e recuperar orçamento e exceções, com testes das unidades, período e reinicialização do orçamento.
 
-## 3. Implementar Análise
+## 3. Ampliar Análise
 
-Criar verificador de orçamento, avaliador do ritmo de consumo e identificador da necessidade de economia. Definir limiares e histerese com a equipe/professor, evitando alternâncias frequentes de modo. Os percentuais discutidos no histórico eram exemplos, não requisitos aprovados. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
+O verificador de orçamento e a identificação da necessidade por X/Y estão implementados para a captura atual. Falta avaliar o ritmo em relação ao período da franquia e definir histerese se os testes indicarem necessidade. Os valores iniciais de 70%/90% são experimentais e editáveis. Perfis 2G/3G/5G não devem ser apresentados como identificação confiável da rede nem como alteração da tecnologia de conexão.
 
 Critério de conclusão: dados de entrada conhecidos produzem necessidades de adaptação explicáveis; a incerteza de medição é considerada.
 
-## 4. Implementar Planejamento
+## 4. Ampliar Planejamento
 
-Selecionar os modos propostos: **Normal**, **Econômico** e **Restritivo**. Em princípio, Econômico restringe áudio/vídeo e Restritivo também imagens. Aplicar exceções prioritárias e produzir plano explícito com justificativa. Validar a classificação de mídia que chega via Fetch/XHR, já que MIME observado depois da resposta nem sempre corresponde ao tipo de regra disponível antes do download.
+A seleção automática de **Normal**, **Econômico** e **Restritivo** e o plano com justificativa estão implementados. Econômico restringe áudio/vídeo e Restritivo também imagens. Falta aplicar exceções prioritárias. Validar a classificação de mídia que chega via Fetch/XHR, já que MIME observado depois da resposta nem sempre corresponde ao tipo de regra disponível antes do download.
 
 Critério de conclusão: um plano respeita prioridades, preserva recursos essenciais e não depende de baixar o recurso inteiro para decidir bloqueá-lo.
 
-## 5. Implementar Execução e Efetor
+## 5. Ampliar Execução e Efetor
 
-Traduzir o plano para `chrome.declarativeNetRequest`, com regras limitadas ao escopo desejado e reversão segura. Considerar `updateSessionRules` com `tabIds` para políticas por aba, e avaliar regras dinâmicas somente quando a política for global. Solicitar apenas as permissões necessárias ao incremento.
+O plano já é traduzido para `chrome.declarativeNetRequest` usando `updateSessionRules` com `tabIds`, remoção de regras ao trocar de aba/encerrar e retorno a Normal. Falta ampliar a cobertura de players e considerar uma política global somente se ela for explicitamente desejada. A permissão declarativa foi adicionada, sem permissões globais de hosts.
 
 Registrar separadamente plano emitido, atualização confirmada pela API e efeito observado nas requisições. Uma confirmação da API não comprova, sozinha, que todos os recursos pretendidos foram bloqueados.
 

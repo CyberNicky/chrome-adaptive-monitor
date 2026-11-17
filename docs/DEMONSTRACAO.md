@@ -1,3 +1,5 @@
+> Roteiro histórico da entrega de 11/11/2026 (monitoramento). Para testar os bloqueios da versão 0.4.0, use [TESTE-ETAPA-1.md](TESTE-ETAPA-1.md).
+
 # Demonstração para o professor Nelson — 11/11/2026
 
 ## Preparação

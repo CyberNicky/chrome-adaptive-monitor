@@ -13,12 +13,21 @@ import {
   enableTarget,
 } from "./sensors/chrome-network-sensor.js";
 
+import { budgetStore } from "./knowledge/budget-store.js";
+import { analyzeBudget } from "./analysis/budget-analyzer.js";
+import { planAdaptation } from "./planning/adaptation-planner.js";
+import { createRequestEffector } from "./effectors/chrome-request-effector.js";
+
+let budgetSettings = null;
+let adaptation = null;
+const effector = createRequestEffector(chrome.declarativeNetRequest);
 let session = null;
 let timer;
 let mutation = Promise.resolve();
 const ports = new Set();
 const ready = sessionStore.load().then(async (saved) => {
   session = saved;
+  budgetSettings = await budgetStore.load();
   if (session && session.schemaVersion !== 2) {
     session.tabs = [{ id: session.tabId, url: session.pageUrl }];
     // Previous sessions use a different request key format. Preserve their history.
@@ -41,7 +50,29 @@ const ready = sessionStore.load().then(async (saved) => {
       interruptTabRequests(session);
     }
   }
+  await synchronizeAdaptation();
 });
+
+async function synchronizeAdaptation() {
+  const analysis = analyzeBudget(
+    budgetSettings,
+    aggregateMetrics(session).transferredBytes,
+  );
+  const plan = planAdaptation(analysis, session);
+  try {
+    const applied = await effector.apply(plan);
+    adaptation = { ...analysis, ...plan, ...applied, error: null };
+  } catch {
+    adaptation = {
+      ...analysis,
+      ...plan,
+      ...effector.applied,
+      desiredMode: plan.mode,
+      error:
+        "O Chrome não confirmou as regras. A proteção pretendida pode não estar ativa. Tente salvar a configuração novamente.",
+    };
+  }
+}
 
 function enqueue(operation) {
   const result = mutation
@@ -54,13 +85,25 @@ function enqueue(operation) {
   return result;
 }
 function snapshot() {
-  if (!session) return { session: null, metrics: aggregateMetrics(null) };
+  if (!session)
+    return {
+      session: null,
+      metrics: aggregateMetrics(null),
+      budgetSettings,
+      adaptation,
+    };
   const { active, ...publicSession } = session;
-  return { session: publicSession, metrics: aggregateMetrics(session) };
+  return {
+    session: publicSession,
+    metrics: aggregateMetrics(session),
+    budgetSettings,
+    adaptation,
+  };
 }
 async function publish() {
   clearTimeout(timer);
   timer = null;
+  await synchronizeAdaptation();
   try {
     await sessionStore.save(session);
   } catch {
@@ -86,7 +129,7 @@ async function publish() {
 function schedulePublish() {
   if (!timer)
     timer = setTimeout(() => {
-      void publish();
+      void enqueue(publish).catch(() => {});
     }, 250);
 }
 
@@ -97,6 +140,7 @@ async function releaseCurrentTab() {
   session.pageUrl = null;
   if (tabId !== null) {
     interruptTabRequests(session, tabId);
+    await synchronizeAdaptation();
     await detachSensor(tabId).catch(() => {});
   }
 }
@@ -123,6 +167,7 @@ async function followTab(tab) {
     session.tabs.push({ id: tab.id, url });
   else session.tabs.find((t) => t.id === tab.id).url = url;
   try {
+    await synchronizeAdaptation();
     await attachSensor(tab.id);
     if (session.notice.startsWith("Não foi possível observar esta aba"))
       session.notice = "";
@@ -172,6 +217,10 @@ chrome.runtime.onConnect.addListener((port) => {
 async function handle(message) {
   switch (message.type) {
     case "GET_STATE":
+      return snapshot();
+    case "SAVE_BUDGET":
+      budgetSettings = await budgetStore.save(message.settings);
+      await publish();
       return snapshot();
     case "START": {
       if (session?.recording) return snapshot();

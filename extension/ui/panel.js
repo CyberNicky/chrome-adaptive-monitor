@@ -1,6 +1,5 @@
 import { RESOURCE_TYPES } from "../monitoring/resource-classifier.js";
 import { sanitizeUrl } from "../monitoring/consumption-estimator.js";
-import { budgetStore } from "../knowledge/budget-store.js";
 
 const $ = (id) => document.getElementById(id);
 const labels = {
@@ -62,10 +61,40 @@ function renderBudgetSettings() {
   );
 }
 
+function renderAdaptation() {
+  const a = state.adaptation;
+  const names = {
+    normal: "Normal",
+    economy: "Econômico",
+    restricted: "Restritivo",
+  };
+  const mode = a?.mode ?? "normal";
+  const label = a?.error ? "Falha nas regras" : names[mode];
+  $("mode-indicator").querySelector("strong").textContent = label;
+  $("mode-indicator").dataset.mode = mode;
+  $("mode-indicator").setAttribute(
+    "aria-label",
+    `Modo de economia atual: ${label}`,
+  );
+  $("mode-indicator").title = a?.error ?? a?.reason ?? "Recursos permitidos";
+  $("adaptation-summary").textContent = a?.error
+    ? "Falha ao atualizar as regras. O modo pretendido pode não estar ativo; confira a mensagem abaixo."
+    : (a?.reason ?? "Configure o orçamento para ativar a economia automática.");
+  $("adaptation-usage").textContent = a?.configured
+    ? `${formatBytes(a.consumedBytes)} de ${formatBytes(a.totalBytes)} · ${a.usedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% utilizado nesta captura · saldo estimado ${formatBytes(a.remainingBytes)}`
+    : "Sem orçamento configurado.";
+  $("adaptation-progress").value = Math.min(100, a?.usedPercent ?? 0);
+  $("adaptation-error").hidden = !a?.error;
+  $("adaptation-error").textContent = a?.error ?? "";
+}
+
 function fillSettingsForm() {
   $("plan-name").value = budgetSettings?.planName ?? "";
   $("data-amount").value = budgetSettings?.dataAmount ?? "";
   $("data-unit").value = budgetSettings?.dataUnit ?? "GB";
+  $("economy-percent").value = budgetSettings?.economyPercent ?? 70;
+  $("restricted-percent").value = budgetSettings?.restrictedPercent ?? 90;
+  $("adaptive-enabled").checked = budgetSettings?.adaptiveEnabled ?? true;
   $("settings-error").hidden = true;
 }
 
@@ -152,6 +181,9 @@ function renderControls() {
 }
 
 function render() {
+  budgetSettings = state.budgetSettings ?? null;
+  renderBudgetSettings();
+  renderAdaptation();
   renderControls();
   const { session, metrics: m } = state;
   $("bytes").textContent = formatBytes(m.transferredBytes ?? 0);
@@ -161,7 +193,8 @@ function render() {
     ? `${m.pending} em andamento`
     : "Nenhuma em andamento";
   $("failures").textContent = m.failures ?? 0;
-  $("cache").textContent = `${m.cached ?? 0} recursos em cache`;
+  $("cache").textContent =
+    `${m.cached ?? 0} em cache · ${m.blocked ?? 0} bloqueadas`;
   const types = Object.entries(m.byType ?? {}).sort(
     (a, b) => b[1].bytes - a[1].bytes,
   );
@@ -354,7 +387,9 @@ function renderRows() {
         text(
           "span",
           row.state === "failed"
-            ? "Falha"
+            ? row.blocked
+              ? "Bloqueada"
+              : "Falha"
             : row.state === "interrupted"
               ? "Interrompida"
               : (row.status ?? "…"),
@@ -413,15 +448,21 @@ $("settings-form").addEventListener("submit", async (event) => {
   save.disabled = true;
   try {
     const form = new FormData(event.currentTarget);
-    budgetSettings = await budgetStore.save({
-      planName: form.get("planName"),
-      dataAmount: form.get("dataAmount"),
-      dataUnit: form.get("dataUnit"),
+    await send("SAVE_BUDGET", {
+      settings: {
+        planName: form.get("planName"),
+        dataAmount: form.get("dataAmount"),
+        dataUnit: form.get("dataUnit"),
+        economyPercent: form.get("economyPercent"),
+        restrictedPercent: form.get("restrictedPercent"),
+        adaptiveEnabled: $("adaptive-enabled").checked,
+      },
     });
     renderBudgetSettings();
     closeSettings();
   } catch (cause) {
-    error.textContent = cause.message || "Não foi possível salvar a configuração.";
+    error.textContent =
+      cause.message || "Não foi possível salvar a configuração.";
     error.hidden = false;
   } finally {
     save.disabled = false;
@@ -444,6 +485,8 @@ $("export").addEventListener("click", () => {
     note: "Estimativa CDP de respostas HTTP(S); não representa todo o tráfego do dispositivo. URLs sem query/fragmento/credenciais. Caminhos podem conter dados pessoais.",
     session,
     metrics,
+    budgetSettings,
+    adaptation: state.adaptation,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -490,8 +533,6 @@ chrome.tabs.onActivated.addListener(() => {
 });
 const requestedId = Number(new URLSearchParams(location.search).get("tabId"));
 await action(async () => {
-  budgetSettings = await budgetStore.load();
-  renderBudgetSettings();
   if (requestedId) {
     const tab = await chrome.tabs.get(requestedId).catch(() => null);
     targetTab =

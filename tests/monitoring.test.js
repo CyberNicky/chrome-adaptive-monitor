@@ -28,6 +28,9 @@ test("valida e normaliza a configuração persistente de orçamento", () => {
       planName: "Plano móvel",
       dataAmount: 20.5,
       dataUnit: "GB",
+      economyPercent: 70,
+      restrictedPercent: 90,
+      adaptiveEnabled: true,
       updatedAt: 123,
     },
   );

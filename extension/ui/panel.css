@@ -853,3 +853,65 @@ tr:last-child td {
     padding: 0 14px 14px;
   }
 }
+
+.threshold-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.threshold-fields label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.threshold-fields input {
+  display: block;
+  margin-top: 6px;
+}
+.automatic-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+.automatic-toggle input {
+  width: auto;
+  accent-color: var(--green);
+}
+.adaptation-status {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 16px 20px;
+  margin-top: 18px;
+  background: #fff;
+  font-size: 12px;
+}
+.adaptation-status > span,
+.adaptation-status p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0;
+}
+.adaptation-status progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--green);
+}
+.mode-indicator[data-mode="economy"] {
+  color: #835e13;
+  background: #fff6dc;
+  border-color: #ead8a1;
+}
+.mode-indicator[data-mode="restricted"] {
+  color: #a1392c;
+  background: #fff1ed;
+  border-color: #efcbc2;
+}
+@media (max-width: 420px) {
+  .threshold-fields {
+    grid-template-columns: 1fr;
+  }
+}

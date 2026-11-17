@@ -15,12 +15,30 @@ export function createBudgetSettings(value, now = Date.now()) {
     throw new Error("Informe uma franquia de dados maior que zero.");
   if (!BUDGET_UNITS.includes(dataUnit))
     throw new Error("Selecione uma unidade válida para a franquia.");
+  const totalBytes = Math.round(dataAmount * (dataUnit === "GB" ? 1e9 : 1e6));
+  if (!Number.isSafeInteger(totalBytes) || totalBytes < 1)
+    throw new Error(
+      "A franquia deve representar uma quantidade válida de bytes.",
+    );
+  const economyPercent = Number(value?.economyPercent ?? 70);
+  const restrictedPercent = Number(value?.restrictedPercent ?? 90);
+  if (
+    !Number.isFinite(economyPercent) ||
+    !Number.isFinite(restrictedPercent) ||
+    economyPercent <= 0 ||
+    economyPercent >= restrictedPercent ||
+    restrictedPercent > 100
+  )
+    throw new Error("Defina limites válidos: 0 < X < Y ≤ 100%.");
 
   return {
     schemaVersion: 2,
     planName,
     dataAmount,
     dataUnit,
+    economyPercent,
+    restrictedPercent,
+    adaptiveEnabled: value?.adaptiveEnabled !== false,
     updatedAt: now,
   };
 }
