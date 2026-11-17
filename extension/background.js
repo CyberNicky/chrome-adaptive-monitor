@@ -13,6 +13,7 @@ import {
   enableTarget,
 } from "./sensors/chrome-network-sensor.js";
 
+import { reconcileUsage, usageStore } from "./knowledge/budget-usage.js";
 import { budgetStore } from "./knowledge/budget-store.js";
 import { analyzeBudget } from "./analysis/budget-analyzer.js";
 import { planAdaptation } from "./planning/adaptation-planner.js";
@@ -25,6 +26,10 @@ const contentEffector = createContentEffector({
   tabs: chrome.tabs,
   runtimeId: chrome.runtime.id,
 });
+const CYCLE_ALARM = "budget-cycle-renewal";
+let scheduledBoundary = null;
+let budgetUsage = null;
+let usageError = null;
 let budgetSettings = null;
 let adaptation = null;
 const effector = createRequestEffector(chrome.declarativeNetRequest);
@@ -35,6 +40,8 @@ const ports = new Set();
 const ready = sessionStore.load().then(async (saved) => {
   session = saved;
   budgetSettings = await budgetStore.load();
+  budgetUsage = await usageStore.load();
+  updateUsage();
   if (session && session.schemaVersion !== 2) {
     session.tabs = [{ id: session.tabId, url: session.pageUrl }];
     // Previous sessions use a different request key format. Preserve their history.
@@ -59,19 +66,43 @@ const ready = sessionStore.load().then(async (saved) => {
     }
   }
   const initialPlan = planAdaptation(
-    analyzeBudget(budgetSettings, aggregateMetrics(session).transferredBytes),
+    analyzeBudget(
+      budgetSettings,
+      budgetUsage?.consumedBytes ?? 0,
+      budgetUsage?.cycle,
+    ),
     session,
   );
   await contentEffector.recover(
     initialPlan.mode === "normal" ? null : initialPlan.tabId,
   );
-  await synchronizeAdaptation();
+  await publish();
 });
 
+function updateUsage(now = Date.now()) {
+  budgetUsage = reconcileUsage(budgetUsage, budgetSettings, session, now);
+}
+async function scheduleCycleRenewal() {
+  const cycle = budgetUsage?.cycle;
+  const nextMidnight = new Date(Date.now());
+  nextMidnight.setHours(24, 0, 0, 0);
+  const boundary = cycle
+    ? Math.min(
+        cycle.active ? cycle.endsAt : cycle.startsAt,
+        nextMidnight.getTime(),
+      )
+    : null;
+  if (boundary === scheduledBoundary) return;
+  if (boundary) await chrome.alarms.create(CYCLE_ALARM, { when: boundary });
+  else await chrome.alarms.clear(CYCLE_ALARM);
+  scheduledBoundary = boundary;
+}
 async function synchronizeAdaptation() {
+  updateUsage();
   const analysis = analyzeBudget(
     budgetSettings,
-    aggregateMetrics(session).transferredBytes,
+    budgetUsage?.consumedBytes ?? 0,
+    budgetUsage?.cycle,
   );
   const plan = planAdaptation(analysis, session);
   try {
@@ -106,6 +137,7 @@ function snapshot() {
       session: null,
       metrics: aggregateMetrics(null),
       budgetSettings,
+      usageError,
       adaptation,
     };
   const { active, ...publicSession } = session;
@@ -113,6 +145,7 @@ function snapshot() {
     session: publicSession,
     metrics: aggregateMetrics(session),
     budgetSettings,
+    usageError,
     adaptation,
   };
 }
@@ -120,6 +153,14 @@ async function publish() {
   clearTimeout(timer);
   timer = null;
   await synchronizeAdaptation();
+  await scheduleCycleRenewal();
+  try {
+    await usageStore.save(budgetUsage);
+    usageError = null;
+  } catch {
+    usageError =
+      "Não foi possível salvar o consumo do ciclo. Mantenha a extensão aberta e tente novamente antes de fechar o Chrome.";
+  }
   try {
     await sessionStore.save(session);
   } catch {
@@ -227,16 +268,19 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "monitor-panel") return;
   ports.add(port);
   port.onDisconnect.addListener(() => ports.delete(port));
-  void ready
-    .then(() => port.postMessage(snapshot()))
-    .catch(() => ports.delete(port));
+  void enqueue(async () => {
+    await publish();
+    port.postMessage(snapshot());
+  }).catch(() => ports.delete(port));
 });
 
 async function handle(message) {
   switch (message.type) {
     case "GET_STATE":
+      await publish();
       return snapshot();
     case "SAVE_BUDGET":
+      updateUsage();
       budgetSettings = await budgetStore.save(message.settings);
       await publish();
       return snapshot();
@@ -247,6 +291,7 @@ async function handle(message) {
         throw new Error(
           "Abra uma página HTTP(S) para iniciar a captura automática.",
         );
+      updateUsage();
       const previous = session;
       session = createSession(tab);
       session.recording = true;
@@ -285,6 +330,7 @@ async function handle(message) {
     case "CLEAR": {
       if (session?.recording)
         throw new Error("Encerre a captura antes de limpar os registros.");
+      updateUsage();
       session = null;
       await publish();
       return snapshot();
@@ -359,6 +405,8 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
       automatic(() => contentEffector.refreshTarget(source));
       return;
     }
+    // Close the previous cycle before processing bytes received after midnight.
+    updateUsage();
     if (
       collectEvent(
         session,
@@ -367,8 +415,10 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
         source.sessionId ?? "root",
         source.tabId,
       )
-    )
+    ) {
+      updateUsage();
       schedulePublish();
+    }
   });
 });
 chrome.debugger.onDetach.addListener((source, reason) => {
@@ -401,3 +451,11 @@ chrome.tabs.onRemoved.addListener((tabId) =>
 setInterval(() => {
   if (session?.recording && adaptation?.playbackBlocked) automatic(publish);
 }, 2000);
+
+// Alarms survive worker suspension. Recheck on every worker start as well.
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === CYCLE_ALARM) {
+    scheduledBoundary = null;
+    automatic(publish);
+  }
+});

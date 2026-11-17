@@ -897,3 +897,12 @@ tr:last-child td {
   background: #fff1ed;
   border-color: #efcbc2;
 }
+
+.settings-help {
+  margin: 16px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.settings-help summary {
+  cursor: pointer;
+}

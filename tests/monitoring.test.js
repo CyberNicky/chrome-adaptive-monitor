@@ -20,14 +20,18 @@ test("valida e normaliza a configuração persistente de orçamento", () => {
         dataAmount: "20.5",
         dataUnit: "GB",
         savingMode: "strict",
+        cycleStartDate: "2026-11-17",
       },
       123,
     ),
     {
-      schemaVersion: 3,
+      schemaVersion: 4,
       planName: "Plano móvel",
       dataAmount: 20.5,
       dataUnit: "GB",
+      cycleStartDate: "2026-11-17",
+      cycleType: "monthly",
+      cycleDays: null,
       adaptiveEnabled: true,
       updatedAt: 123,
     },
@@ -366,8 +370,8 @@ test("configurações antigas migram sem devolver ao usuário os limites da pol�
   };
   try {
     const settings = await budgetStore.load();
-    assert.equal(settings.schemaVersion, 3);
-    assert.equal(saved.schemaVersion, 3);
+    assert.equal(settings.schemaVersion, 4);
+    assert.equal(saved.schemaVersion, 4);
     assert.equal(settings.dataAmount, 1);
     assert.equal(Object.hasOwn(saved, "economyPercent"), false);
     assert.equal(Object.hasOwn(saved, "restrictedPercent"), false);

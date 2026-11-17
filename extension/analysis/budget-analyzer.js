@@ -1,6 +1,6 @@
 import { ADAPTATION_POLICY } from "../knowledge/adaptation-policy.js";
 
-export function analyzeBudget(settings, consumedBytes) {
+export function analyzeBudget(settings, consumedBytes, cycle = null) {
   const totalBytes = settings
     ? Math.round(settings.dataAmount * (settings.dataUnit === "GB" ? 1e9 : 1e6))
     : 0;
@@ -12,9 +12,10 @@ export function analyzeBudget(settings, consumedBytes) {
     (totalBytes * ADAPTATION_POLICY.restrictedPercent) / 100,
   );
   return {
+    cycle,
     policy: ADAPTATION_POLICY,
     configured: totalBytes > 0,
-    enabled: Boolean(settings?.adaptiveEnabled),
+    enabled: Boolean(settings?.adaptiveEnabled) && cycle?.active !== false,
     totalBytes,
     consumedBytes: consumed,
     remainingBytes: Math.max(0, totalBytes - consumed),
@@ -22,7 +23,7 @@ export function analyzeBudget(settings, consumedBytes) {
     economyBytes,
     restrictedBytes,
     need:
-      !totalBytes || !settings.adaptiveEnabled
+      !totalBytes || !settings.adaptiveEnabled || cycle?.active === false
         ? "none"
         : consumed >= restrictedBytes
           ? "restrict"

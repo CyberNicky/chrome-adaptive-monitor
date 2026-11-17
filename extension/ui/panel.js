@@ -1,6 +1,8 @@
 import { RESOURCE_TYPES } from "../monitoring/resource-classifier.js";
 import { sanitizeUrl } from "../monitoring/consumption-estimator.js";
 
+import { getBillingCycle, localDate } from "../knowledge/billing-cycle.js";
+
 const $ = (id) => document.getElementById(id);
 const labels = {
   document: "HTML",
@@ -81,17 +83,50 @@ function renderAdaptation() {
     ? "Falha ao aplicar a adaptação. O modo pretendido pode não estar ativo; confira a mensagem abaixo."
     : (a?.reason ?? "Configure o orçamento para ativar a economia automática.");
   $("adaptation-usage").textContent = a?.configured
-    ? `${formatBytes(a.consumedBytes)} de ${formatBytes(a.totalBytes)} · ${a.usedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% utilizado nesta captura · saldo estimado ${formatBytes(a.remainingBytes)}`
+    ? `${formatBytes(a.consumedBytes)} de ${formatBytes(a.totalBytes)} · ${a.usedPercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% utilizado neste ciclo · saldo estimado ${formatBytes(a.remainingBytes)}`
     : "Sem orçamento configurado.";
+  $("billing-cycle-status").textContent = a?.cycle
+    ? describeCycle(a.cycle)
+    : "";
+  $("usage-error").hidden = !state.usageError;
+  $("usage-error").textContent = state.usageError ?? "";
   $("adaptation-progress").value = Math.min(100, a?.usedPercent ?? 0);
   $("adaptation-error").hidden = !a?.error;
   $("adaptation-error").textContent = a?.error ?? "";
 }
 
+function describeCycle(cycle) {
+  const date = (value) => value.split("-").reverse().join("/");
+  const days = (value) => `${value} ${value === 1 ? "dia" : "dias"}`;
+  return cycle.active
+    ? `Ciclo iniciado em ${date(cycle.startDate)} · renova em ${date(cycle.endDate)} · ${days(cycle.durationDays)} no ciclo · ${days(cycle.remainingDays)} até renovar`
+    : `Franquia começa em ${date(cycle.startDate)} · renova em ${date(cycle.endDate)} · ${days(cycle.durationDays)} no ciclo`;
+}
+function previewCycle() {
+  const fixed = $("cycle-type").value === "days";
+  $("cycle-days-field").hidden = !fixed;
+  $("cycle-days").disabled = !fixed;
+  $("cycle-days").required = fixed;
+  try {
+    const cycle = getBillingCycle({
+      cycleStartDate: $("cycle-start-date").value,
+      cycleType: $("cycle-type").value,
+      cycleDays: Number($("cycle-days").value),
+    });
+    $("cycle-preview").textContent = describeCycle(cycle);
+  } catch {
+    $("cycle-preview").textContent =
+      "Informe uma data e uma duração válidas para visualizar o ciclo.";
+  }
+}
 function fillSettingsForm() {
   $("plan-name").value = budgetSettings?.planName ?? "";
   $("data-amount").value = budgetSettings?.dataAmount ?? "";
   $("data-unit").value = budgetSettings?.dataUnit ?? "GB";
+  $("cycle-start-date").value = budgetSettings?.cycleStartDate ?? localDate();
+  $("cycle-type").value = budgetSettings?.cycleType ?? "monthly";
+  $("cycle-days").value = budgetSettings?.cycleDays ?? 30;
+  previewCycle();
   $("adaptive-enabled").checked = budgetSettings?.adaptiveEnabled ?? true;
   $("settings-error").hidden = true;
 }
@@ -451,6 +486,9 @@ $("settings-form").addEventListener("submit", async (event) => {
         planName: form.get("planName"),
         dataAmount: form.get("dataAmount"),
         dataUnit: form.get("dataUnit"),
+        cycleStartDate: form.get("cycleStartDate"),
+        cycleType: form.get("cycleType"),
+        cycleDays: form.get("cycleDays"),
         adaptiveEnabled: $("adaptive-enabled").checked,
       },
     });
@@ -464,6 +502,8 @@ $("settings-form").addEventListener("submit", async (event) => {
     save.disabled = false;
   }
 });
+for (const id of ["cycle-start-date", "cycle-type", "cycle-days"])
+  $(id).addEventListener("input", previewCycle);
 for (const id of ["search", "filter", "sort", "tab-filter"])
   $(id).addEventListener(id === "search" ? "input" : "change", () => {
     limit = 100;

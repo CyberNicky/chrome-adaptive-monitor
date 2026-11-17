@@ -50,7 +50,7 @@
         >
           <span aria-hidden="true">⚙</span>
         </button>
-        <span class="version">PROTÓTIPO 0.5</span>
+        <span class="version">PROTÓTIPO 0.6</span>
       </div>
     </header>
     <dialog id="settings-dialog" class="settings-dialog">
@@ -102,6 +102,38 @@
             </select>
           </div>
         </fieldset>
+        <label class="form-field" for="cycle-start-date">
+          <span>Data de início da franquia</span>
+          <input
+            id="cycle-start-date"
+            name="cycleStartDate"
+            type="date"
+            min="1970-01-01"
+            max="9998-01-01"
+            required
+          />
+        </label>
+        <label class="form-field" for="cycle-type">
+          <span>Renovação da franquia</span>
+          <select id="cycle-type" name="cycleType">
+            <option value="monthly">Mensal, na data de início</option>
+            <option value="days">A cada quantidade de dias</option>
+          </select>
+        </label>
+        <label id="cycle-days-field" class="form-field" for="cycle-days" hidden>
+          <span>Duração do ciclo em dias</span>
+          <input
+            id="cycle-days"
+            name="cycleDays"
+            type="number"
+            min="1"
+            max="366"
+            step="1"
+            value="30"
+          />
+        </label>
+        <p id="cycle-preview" class="settings-scope" aria-live="polite"></p>
+
         <p class="settings-scope">
           Meta do sistema: preservar a franquia. A política automática ativa
           Econômico em 70% do consumo observado e Restritivo em 90%. Você
@@ -111,21 +143,31 @@
           ><input id="adaptive-enabled" type="checkbox" checked />Ativar
           economia automática durante a captura</label
         >
-        <p class="settings-scope">
-          Normal permite recursos; Econômico interrompe a reprodução e bloqueia
-          novos áudios e vídeos; Restritivo bloqueia também novas imagens. HTML,
-          CSS, JavaScript e fontes continuam permitidos para manter o texto e a
-          navegação.
-        </p>
-        <p class="settings-scope">
-          Etapa 1: os limites usam o consumo desta captura. Período da franquia,
-          alertas e histórico persistente serão adicionados nas próximas etapas.
-        </p>
-        <p class="settings-scope">
-          Players de streaming com formatos e URLs específicos podem exigir
-          regras adicionais. Áudio e vídeo já carregados são pausados nos modos
-          de economia; imagens exibidas são ocultadas no Restritivo.
-        </p>
+        <details class="settings-help">
+          <summary>Como funcionam o ciclo e os modos</summary>
+          <p class="settings-scope">
+            A renovação ocorre à meia-noite da data indicada, pelo horário do
+            dispositivo. Editar o plano ou as datas preserva o consumo já
+            registrado.
+          </p>
+          <p class="settings-scope">
+            Normal permite recursos; Econômico interrompe a reprodução e
+            bloqueia novos áudios e vídeos; Restritivo bloqueia também novas
+            imagens. HTML, CSS, JavaScript e fontes continuam permitidos para
+            manter o texto e a navegação.
+          </p>
+          <p class="settings-scope">
+            Os modos usam o consumo observado no ciclo da franquia, acumulado
+            entre capturas e salvo neste navegador. Os registros de requisições
+            continuam sendo da captura atual. Alertas e histórico de sessões
+            serão adicionados nas próximas etapas.
+          </p>
+          <p class="settings-scope">
+            Players de streaming com formatos e URLs específicos podem exigir
+            regras adicionais. Áudio e vídeo já carregados são pausados nos
+            modos de economia; imagens exibidas são ocultadas no Restritivo.
+          </p>
+        </details>
         <p id="settings-error" class="message error" role="alert" hidden></p>
         <div class="dialog-actions">
           <button id="cancel-settings" type="button">Cancelar</button>
@@ -177,6 +219,7 @@
           >Configure o orçamento para ativar a economia automática.</strong
         >
         <span id="adaptation-usage">Sem orçamento configurado.</span>
+        <span id="billing-cycle-status"></span>
         <progress
           id="adaptation-progress"
           max="100"
@@ -189,6 +232,7 @@
           automática.
         </p>
       </section>
+      <p id="usage-error" class="message error" role="alert" hidden></p>
       <p id="adaptation-error" class="message error" role="alert" hidden></p>
       <section class="stats" aria-label="Métricas da sessão">
         <article class="stat accent">
@@ -342,7 +386,7 @@
         <div><strong>P</strong><span>Planejamento</span></div>
         <span class="connector">→</span>
         <div><strong>E</strong><span>Execução</span></div>
-        <p>Etapa 1 · modos automáticos por consumo da captura atual</p>
+        <p>Etapa 2 · modos automáticos por consumo do ciclo da franquia</p>
       </footer>
     </main>
     <script type="module" src="panel.js"></script>

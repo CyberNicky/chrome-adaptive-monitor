@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.5.0 implementa monitoramento e um ciclo básico de adaptação por consumo: a Análise compara os bytes da captura com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém os parâmetros persistentes e os registros temporários. Ainda não há ciclo mensal, contador persistente de uso, alertas ou histórico de sessões anteriores.
+A entrega 0.6.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas e consulta ao histórico de sessões anteriores seguem pendentes.
 
 ## Fluxo implementado
 
@@ -11,8 +11,8 @@ flowchart LR
     Coletor --> Classificador[Classificador de recursos]
     Classificador --> Estimador[Estimador de consumo]
     Estimador --> Agregador[Agregador de métricas]
-    Coletor --> Conhecimento[Conhecimento: sessão temporária]
-    Agregador --> Analise[Análise: consumo vs X/Y]
+    Coletor --> Conhecimento[Conhecimento: sessão e ciclo da franquia]
+    Agregador --> Analise[Análise: consumo do ciclo vs metas]
     Conhecimento --> Analise
     Analise --> Plano[Planejamento: selecionar modo]
     Plano --> Execucao[Execução: traduzir regras]
@@ -45,7 +45,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 **Contextos filhos.** A instrumentação usa sessões CDP planas, disponíveis via `chrome.debugger` a partir do Chrome 125. Novos iframes/workers dedicados são instrumentados antes de continuar sua execução, reduzindo a perda de eventos iniciais. Isso pode introduzir atraso de instrumentação. IDs são isolados por contexto; transições de alvo com ID inequívoco podem ser correlacionadas. Contextos não instrumentados podem deixar cobertura parcial.
 
-**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia e ativação automática persistem localmente. As metas são parâmetros internos da política, não preferências do usuário. O consumo considerado ainda é o da captura atual. Período da franquia, histórico permanente, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
+**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia e ativação automática persistem localmente. As metas são parâmetros internos da política, não preferências do usuário. Desde a versão 0.6.0, o consumo dos modos é o acumulado persistente do ciclo da franquia. Histórico de sessões, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
 
 **Interface persistente.** O painel usa conexão de mensagens para receber atualizações agrupadas em intervalos de 250 ms, evitando renderizar a cada pacote recebido. A tabela apresenta 100 registros por vez, com opção de mostrar mais; as métricas incluem todos os registros retidos. A captura continua ao fechar o painel, até ser encerrada ou desconectada.
 
@@ -82,7 +82,7 @@ As regras de sessão usam IDs reservados 9001 a 9004 e nunca bloqueiam tipos HTM
 
 A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Dados já recebidos não são recuperáveis; o controle complementar da versão 0.5.0 pausa a reprodução e oculta imagens em elementos suportados.
 
-Esta etapa usa exclusivamente a transferência da captura atual, não a soma entre reinicializações. O avaliador de ritmo em relação ao período da franquia, o gerenciador de exceções e o histórico persistente ainda não estão implementados.
+Na versão 0.4.0, a base era exclusivamente a captura; desde 0.6.0, usa-se a soma persistente do ciclo entre reinicializações. O avaliador de ritmo em relação ao período da franquia, o gerenciador de exceções e o histórico persistente ainda não estão implementados.
 
 ## Metas do sistema e controle da reprodução (0.5.0)
 
@@ -96,4 +96,16 @@ Há uma ampliação concreta do ponto de atuação: além da filtragem das requi
 
 Ao voltar a Normal, desativar, encerrar ou liberar uma aba, a extensão restaura suas alterações sem iniciar áudio automaticamente nem desfazer um silenciamento prévio do usuário. O controle da página tem uma duração renovada enquanto a captura está ativa; se a extensão for desconectada/recarregada, ele expira e restaura a página. O reinício também recupera silenciamento que tenha sido deixado pela própria extensão.
 
-Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. Datas, alertas e histórico permanente seguem como próximos incrementos.
+Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. O calendário foi acrescentado na versão 0.6.0; alertas e histórico de sessões seguem como próximos incrementos.
+
+## Calendário e consumo da franquia (0.6.0 / item 2)
+
+`knowledge/billing-cycle.js` calcula ciclos mensais ancorados na data inicial ou períodos fixos de 1–366 dias. Aritmética de datas civis evita erros por horário de verão; os limites são meias-noites locais e o final é exclusivo. O ciclo mensal respeita meses curtos e ano bissexto sem perder o dia original. Uma data futura mantém a contabilização e a adaptação suspensas até começar.
+
+`knowledge/budget-usage.js` mantém o acumulado e checkpoints por ID de requisição da captura. As atualizações CDP são reconciliadas antes/depois do evento: a renovação fecha o período anterior antes dos novos bytes; totais finais substituem parciais e correções não retiram bytes de outras requisições ou de ciclos anteriores. Total e checkpoints são gravados em um documento em `storage.local`, separado da sessão temporária. Nenhuma URL é incluída nesse documento.
+
+O controlador reconcilia o período, agenda `chrome.alarms`, persiste o acumulado e entrega consumo e calendário à Análise. A renovação recalcula o plano e restaura Normal quando aplicável. Iniciar/limpar captura ou reiniciar o navegador não apaga o acumulado do ciclo. Alterações do plano preservam o valor já observado. O painel distingue consumo da franquia de métricas da captura; persistência com falha é informada ao usuário.
+
+Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. Alertas e histórico consultável continuam fora desta entrega.
+
+O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova persistência, inicia outra captura sob a mesma franquia e dispara um alarme real com relógio controlado no teste, verificando renovação sem consulta do painel e retirada dos bloqueios. O produto não possui mecanismo de teste para forçar datas ou zerar o consumo. O contador segue limitado às medições retidas e aos períodos efetivamente monitorados; não representa a fatura da operadora.

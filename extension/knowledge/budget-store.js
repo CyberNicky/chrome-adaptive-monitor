@@ -1,3 +1,5 @@
+import { localDate, parseDate } from "./billing-cycle.js";
+
 const KEY = "dataBudgetSettings";
 
 export const BUDGET_UNITS = ["MB", "GB"];
@@ -20,11 +22,25 @@ export function createBudgetSettings(value, now = Date.now()) {
     throw new Error(
       "A franquia deve representar uma quantidade válida de bytes.",
     );
+  const cycleStartDate = value?.cycleStartDate ?? localDate(now);
+  parseDate(cycleStartDate);
+  const cycleType = value?.cycleType ?? "monthly";
+  if (!["monthly", "days"].includes(cycleType))
+    throw new Error("Selecione um período mensal ou por dias.");
+  const cycleDays = cycleType === "days" ? Number(value?.cycleDays) : null;
+  if (
+    cycleType === "days" &&
+    (!Number.isInteger(cycleDays) || cycleDays < 1 || cycleDays > 366)
+  )
+    throw new Error("A duração deve ser um número inteiro entre 1 e 366 dias.");
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     planName,
     dataAmount,
     dataUnit,
+    cycleStartDate,
+    cycleType,
+    cycleDays,
     adaptiveEnabled: value?.adaptiveEnabled !== false,
     updatedAt: now,
   };
@@ -35,8 +51,11 @@ export const budgetStore = {
     const saved = (await chrome.storage.local.get(KEY))[KEY];
     if (!saved) return null;
     try {
-      const normalized = createBudgetSettings(saved, saved.updatedAt);
-      if (saved.schemaVersion !== 3)
+      const normalized = createBudgetSettings(
+        { cycleStartDate: localDate(), ...saved },
+        saved.updatedAt,
+      );
+      if (saved.schemaVersion !== 4)
         await chrome.storage.local.set({ [KEY]: normalized });
       return normalized;
     } catch {
