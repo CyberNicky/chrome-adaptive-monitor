@@ -14,7 +14,7 @@ export function renderPageConsumptionAlert(payload) {
     all: "initial",
     position: "fixed",
     right: "16px",
-    top: "20px",
+    bottom: "20px",
     "z-index": "2147483647",
     width: "min(440px, calc(100vw - 32px))",
     visibility: "visible",
@@ -27,7 +27,8 @@ export function renderPageConsumptionAlert(payload) {
   css.replaceSync(`
     :host{font:14px/1.5 system-ui,sans-serif;color:#183d33;color-scheme:light}
     *{box-sizing:border-box} [hidden]{display:none!important}
-    .card{font:16px/1.5 system-ui,sans-serif;color:#6e4c0c;padding:22px;border:2px solid #d5a944;border-left-width:6px;border-radius:14px;background:#fff8e5;box-shadow:0 12px 40px #142b2240;max-height:calc(100dvh - 40px);overflow:auto}
+    .card{font:16px/1.5 system-ui,sans-serif;color:#145b47;padding:22px;border:2px solid #39967a;border-left-width:6px;border-radius:14px;background:#edf8f2;box-shadow:0 12px 40px #142b2240;max-height:calc(100dvh - 40px);overflow:auto}
+    .card.economy{background:#fff8e5;border-color:#d5a944;color:#6e4c0c}
     .card.critical{background:#fff1ed;border-color:#c95b4b;color:#8e3026}
     .heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .brand{font-weight:750;font-size:12px;letter-spacing:.06em}
@@ -36,7 +37,8 @@ export function renderPageConsumptionAlert(payload) {
     button{font:600 13px/1.5 system-ui,sans-serif;cursor:pointer;border:1px solid #bfd7cb;background:#fff;color:#183d33;border-radius:8px;padding:7px 12px}
     button:focus-visible{outline:3px solid #167c69;outline-offset:3px}
     .close{font-size:24px;line-height:1;padding:8px 10px;border-color:transparent;background:transparent;color:inherit}
-    .chip{display:block;margin-left:auto;font-size:15px;font-weight:750;padding:12px 18px;min-height:48px;box-shadow:0 8px 24px #142b2240;border:2px solid #d5a944;background:#fff8e5;max-width:100%;white-space:normal;text-align:left}
+    .chip{display:block;margin-left:auto;font-size:15px;font-weight:750;padding:12px 18px;min-height:48px;box-shadow:0 8px 24px #142b2240;border:2px solid #39967a;background:#edf8f2;color:#145b47;max-width:100%;white-space:normal;text-align:left}
+    .chip.economy{background:#fff8e5;border-color:#d5a944;color:#6e4c0c}
     .chip.critical{background:#fff1ed;border-color:#c95b4b;color:#8e3026}
   `);
   root.adoptedStyleSheets = [css];
@@ -75,7 +77,11 @@ export function renderPageConsumptionAlert(payload) {
     chip.hidden = expanded;
     host.dataset.level = String(data.current.level);
     host.dataset.expanded = String(expanded);
-    const critical = data.current.severity === "critical";
+    host.dataset.mode = data.mode;
+    brand.textContent = `NAVEGA · MODO ${data.modeLabel.toLocaleUpperCase("pt-BR")}`;
+    const critical = data.mode === "restricted";
+    card.classList.toggle("economy", data.mode === "economy");
+    chip.classList.toggle("economy", data.mode === "economy");
     card.classList.toggle("critical", critical);
     chip.classList.toggle("critical", critical);
     // Do not mutate unchanged live-region text on every lease renewal.
@@ -83,7 +89,7 @@ export function renderPageConsumptionAlert(payload) {
       title.textContent = data.current.title;
     if (message.textContent !== data.current.message)
       message.textContent = data.current.message;
-    chip.textContent = `Navega · ${data.percentLabel}% da franquia`;
+    chip.textContent = `Navega · ${data.modeLabel} · ${data.percentLabel}% da franquia`;
     chip.setAttribute(
       "aria-label",
       `Abrir aviso de consumo: ${data.percentLabel}% da franquia`,
@@ -111,7 +117,7 @@ export function renderPageConsumptionAlert(payload) {
   }, 500);
   globalThis[key] = {
     update(next) {
-      const nextIdentity = `${next.token}/${next.current.level}`;
+      const nextIdentity = `${next.token}/${next.current.level}/${next.mode}`;
       if (identity !== nextIdentity) expandedOverride = null;
       identity = nextIdentity;
       data = next;

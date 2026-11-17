@@ -56,14 +56,45 @@ export function createPageAlertEffector({ sendCommand }) {
       if (tabId === activeTab) lastPayload = null;
     },
     async apply(tabId, alert, analysis) {
-      const target = alert?.current && tabId !== null ? tabId : null;
+      const target = tabId ?? null;
       if (activeTab !== null && activeTab !== target) await clear();
       if (target === null) {
         error = null;
         return;
       }
+      const mode = analysis.mode ?? "normal";
+      const modeLabel = {
+        normal: "Normal",
+        economy: "Econômico",
+        restricted: "Restritivo",
+      }[mode];
+      const percentLabel = analysis.usedPercent.toLocaleString("pt-BR", {
+        maximumFractionDigits: 1,
+      });
+      const formatBytes = (value) => {
+        const units = ["B", "kB", "MB", "GB"];
+        let index = 0;
+        while (value >= 1000 && index < units.length - 1) {
+          value /= 1000;
+          index++;
+        }
+        return `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} ${units[index]}`;
+      };
       const payload = {
         ...alert,
+        current: alert?.current ?? {
+          level: 0,
+          title: `Modo ${modeLabel} · monitoramento ativo`,
+          message: analysis.configured
+            ? `${percentLabel}% da franquia observada neste ciclo: ${formatBytes(analysis.consumedBytes)} de ${formatBytes(analysis.totalBytes)}. Saldo estimado: ${formatBytes(analysis.remainingBytes)}.`
+            : "Captura de recursos ativa. Configure a franquia no Navega para acompanhar o consumo do seu plano.",
+        },
+        visible: alert?.current
+          ? alert.visible
+          : (alert?.normalVisible ?? true),
+        token: alert?.token ?? "monitoring",
+        mode,
+        modeLabel,
         percentLabel: analysis.usedPercent.toLocaleString("pt-BR", {
           maximumFractionDigits: 1,
         }),

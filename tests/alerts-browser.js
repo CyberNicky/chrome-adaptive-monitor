@@ -122,6 +122,35 @@ try {
     async () => (await state()).metrics.pending === 0,
     "carregamento inicial",
   );
+  const initialNotice = page.locator("navega-consumption-alert");
+  await initialNotice
+    .getByRole("heading", { name: "Modo Normal · monitoramento ativo" })
+    .waitFor();
+  assert.equal(await initialNotice.getAttribute("data-mode"), "normal");
+  assert.equal(
+    await initialNotice
+      .locator("aside")
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+    "rgb(237, 248, 242)",
+    "Normal é verde antes de qualquer alerta",
+  );
+  await mkdir("artifacts", { recursive: true });
+  await page.screenshot({ path: "artifacts/monitor-normal.png" });
+  assert.equal(await attempts(), 0, "monitor verde não emite alerta nativo");
+  await initialNotice
+    .getByRole("button", { name: "Recolher aviso de consumo" })
+    .click();
+  await initialNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .waitFor();
+  await until(
+    async () => (await state()).consumptionAlert.normalVisible === false,
+    "recolhimento do monitor normal salvo",
+  );
+  await page.reload();
+  await initialNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .waitFor();
   await panel.close();
   await consumeTo(720000);
   assert.equal((await state()).consumptionAlert.current.level, 70);
@@ -149,8 +178,10 @@ try {
   await mkdir("artifacts", { recursive: true });
   const desktopBounds = await pageNotice.boundingBox();
   assert.ok(
-    desktopBounds.width >= 430 && desktopBounds.y <= 24,
-    "aviso maior no topo da página",
+    desktopBounds.width >= 430 &&
+      desktopBounds.y + desktopBounds.height >= 690 &&
+      desktopBounds.y + desktopBounds.height <= 704,
+    "aviso maior no canto inferior da página",
   );
   await page.screenshot({ path: "artifacts/alerta-na-pagina.png" });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -306,6 +337,7 @@ try {
   );
   await panel.reload();
   assert.equal((await state()).budgetSettings.notificationsEnabled, false);
+  await activateDemo();
   const beforeRenewal = await state();
   await worker.evaluate(async (now) => {
     const actualNow = Date.now.bind(Date);
@@ -319,7 +351,15 @@ try {
     "renovação limpa aviso",
   );
   assert.equal((await state()).adaptation.consumedBytes, 0);
-  await page.locator("navega-consumption-alert").waitFor({ state: "detached" });
+  await page
+    .locator("navega-consumption-alert")
+    .getByRole("heading", { name: "Modo Normal · monitoramento ativo" })
+    .waitFor();
+  assert.equal(
+    await page.locator("navega-consumption-alert").getAttribute("data-mode"),
+    "normal",
+    "renovar preserva monitor verde",
+  );
   const alertState = await worker.evaluate(
     async () =>
       (await chrome.storage.local.get("consumptionAlertState"))

@@ -121,6 +121,17 @@ try {
     .click();
   await page.reload();
   await waitMode("normal");
+  assert.equal(
+    await page.locator("navega-consumption-alert").getAttribute("data-mode"),
+    "normal",
+  );
+  assert.equal(
+    await page
+      .locator("navega-consumption-alert aside")
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+    "rgb(237, 248, 242)",
+    "cor acompanha modo normal",
+  );
   for (const kind of ["image", "audio", "video"])
     assert.equal(
       await asset(page, kind, `normal-${kind}`),
@@ -157,6 +168,17 @@ try {
   });
   await consumeTo(720000);
   await waitMode("economy");
+  assert.equal(
+    await page.locator("navega-consumption-alert").getAttribute("data-mode"),
+    "economy",
+  );
+  assert.equal(
+    await page
+      .locator("navega-consumption-alert aside")
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+    "rgb(255, 248, 229)",
+    "cor acompanha modo economy",
+  );
   assert.equal(
     await panel.locator("#mode-indicator strong").innerText(),
     "Econômico",
@@ -271,6 +293,17 @@ try {
   });
   await consumeTo(940000);
   await waitMode("restricted");
+  assert.equal(
+    await page.locator("navega-consumption-alert").getAttribute("data-mode"),
+    "restricted",
+  );
+  assert.equal(
+    await page
+      .locator("navega-consumption-alert aside")
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+    "rgb(255, 241, 237)",
+    "cor acompanha modo restricted",
+  );
   assert.equal(
     await panel.locator("#mode-indicator strong").innerText(),
     "Restritivo",

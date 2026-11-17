@@ -1,6 +1,6 @@
 # Continuação do desenvolvimento
 
-A versão 0.8.0 entrega os itens 1, 2 e 3: modos por metas internas, período/renovação da franquia e alertas de consumo persistentes no painel e sobre a página monitorada. Aguardar os testes do usuário antes de avançar ao item 4.
+A versão 0.9.0 entrega os itens 1, 2 e 3: modos por metas internas, período/renovação da franquia e alertas de consumo persistentes no painel e sobre a página monitorada. Aguardar os testes do usuário antes de avançar ao item 4.
 
 Próximo incremento: **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md).
 

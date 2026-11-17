@@ -185,3 +185,18 @@ test("permissão negada ou falha do SO mantém aviso sem repetir tentativas", as
     assert.equal(f.stored().notifiedLevel, 70);
   }
 });
+
+test("monitor Normal recolhido persiste sem suprimir alertas de consumo", async () => {
+  const f = fixture();
+  await f.controller.load();
+  await f.controller.synchronize(analysis(0), usage, settings);
+  assert.equal(f.controller.snapshot.normalVisible, true);
+  await f.controller.acknowledge(0, f.controller.snapshot.token);
+  assert.equal(f.controller.snapshot.normalVisible, false);
+  const restarted = createConsumptionAlerts(f.dependencies);
+  await restarted.load();
+  await restarted.synchronize(analysis(1000), usage, settings);
+  assert.equal(restarted.snapshot.normalVisible, false);
+  await restarted.synchronize(analysis(700000), usage, settings);
+  assert.equal(restarted.snapshot.visible, true);
+});

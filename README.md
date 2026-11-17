@@ -1,6 +1,6 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.8.0 amplia o item 3: alertas de consumo em 70%, 90% e 100% aparecem sobre a própria página monitorada, além do painel e das notificações do Chrome, com confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.9.0 mantém um monitor de consumo sobre a própria página durante toda a captura: verde no modo Normal, amarelo no Econômico e vermelho no Restritivo. Os alertas de 70%, 90% e 100% continuam disponíveis no painel e nas notificações do Chrome, com confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
@@ -90,7 +90,7 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.8.0** apresenta o aviso sobre a própria página, sem novas permissões. A permissão `notifications`, adicionada em 0.7.0, continua permitindo avisos nativos opcionais. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.9.0** mantém o monitor no canto inferior direito inclusive no modo Normal, com tamanho ampliado e sem novas permissões. A permissão `notifications`, adicionada em 0.7.0, continua permitindo avisos nativos opcionais. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
 
 ## Comparar o consumo das abas
 
@@ -152,8 +152,8 @@ O estado de tentativa é persistido antes da chamada à [API de notificações d
 
 Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras de bytes, salto de faixas, confirmação, falhas, renovação e reinício. O teste em Chrome chama a API real e valida o aviso com o painel fechado e a persistência. O histórico consultável do item 4 ainda não está implementado.
 
-### Aviso sobre a própria página (0.8.0)
+### Monitor sobre a própria página (0.9.0)
 
-Com a captura ativa, os alertas aparecem no canto superior direito da aba HTTP(S) monitorada. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o percentual. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
+Com a captura ativa, o monitor permanece no canto inferior direito da aba HTTP(S) monitorada desde o início, mesmo antes de qualquer alerta. O cartão mantém a largura de até 440 px, com adaptação para telas estreitas. A cor acompanha o modo efetivamente ativo: verde no Normal, amarelo no Econômico e vermelho no Restritivo. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o modo e o percentual. O recolhimento no Normal também é preservado dentro do ciclo. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
 
-O indicador acompanha a aba monitorada e reaparece após recarregar, respeitando confirmações do ciclo. Encerrar a captura, renovar o ciclo ou ficar abaixo de 70% remove o aviso da página. Ao sair da aba, o aviso é removido dela. A apresentação é feita em Shadow DOM de um mundo isolado CDP, sem requisições adicionais ou novas permissões de acesso. Páginas internas/protegidas do Chrome continuam fora da captura. Não usa janelas modais que interrompem a navegação.
+O indicador acompanha a aba monitorada e reaparece após recarregar, respeitando confirmações do ciclo. Encerrar a captura remove o monitor da página. A renovação e o consumo abaixo de 70% mantêm o monitor verde no Normal; a renovação também reinicia as confirmações. Ao sair da aba, o aviso é removido dela. A apresentação é feita em Shadow DOM de um mundo isolado CDP, sem requisições adicionais ou novas permissões de acesso. Páginas internas/protegidas do Chrome continuam fora da captura. Não usa janelas modais que interrompem a navegação.

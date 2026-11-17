@@ -53,6 +53,7 @@ export function createConsumptionAlerts({ store, notifications, iconUrl }) {
           token: String(renewal ?? usage.cycle.startsAt),
           notifiedLevel: 0,
           dismissedLevel: 0,
+          normalDismissed: false,
           notificationError: null,
         };
   }
@@ -68,6 +69,7 @@ export function createConsumptionAlerts({ store, notifications, iconUrl }) {
     get snapshot() {
       return {
         current,
+        normalVisible: !saved?.normalDismissed,
         visible: Boolean(
           current &&
           current.level >
@@ -136,6 +138,18 @@ export function createConsumptionAlerts({ store, notifications, iconUrl }) {
       }
     },
     async acknowledge(level, token) {
+      if (
+        level === 0 &&
+        saved &&
+        token === currentToken &&
+        token === saved.token &&
+        !current
+      ) {
+        const next = { ...saved, normalDismissed: true };
+        await store.save(next);
+        saved = next;
+        return;
+      }
       if (
         !saved ||
         token !== currentToken ||

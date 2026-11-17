@@ -204,11 +204,14 @@ async function publish() {
   await pageAlertEffector.apply(
     session?.recording ? session.tabId : null,
     consumptionAlerts.snapshot,
-    analyzeBudget(
-      budgetSettings,
-      budgetUsage?.consumedBytes ?? 0,
-      budgetUsage?.cycle,
-    ),
+    {
+      ...analyzeBudget(
+        budgetSettings,
+        budgetUsage?.consumedBytes ?? 0,
+        budgetUsage?.cycle,
+      ),
+      mode: adaptation?.mode ?? "normal",
+    },
   );
   const value = snapshot();
   for (const port of ports) {
@@ -523,13 +526,9 @@ chrome.tabs.onRemoved.addListener((tabId) =>
   }),
 );
 
-// Renew the page guard lease while the monitored tab is restricted.
+// Renew the page notice throughout capture, including Normal mode.
 setInterval(() => {
-  if (
-    session?.recording &&
-    (adaptation?.playbackBlocked || consumptionAlerts.snapshot.current)
-  )
-    automatic(publish);
+  if (session?.recording) automatic(publish);
 }, 2000);
 
 // Alarms survive worker suspension. Recheck on every worker start as well.
