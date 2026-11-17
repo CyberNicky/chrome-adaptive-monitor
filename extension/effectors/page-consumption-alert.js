@@ -14,9 +14,9 @@ export function renderPageConsumptionAlert(payload) {
     all: "initial",
     position: "fixed",
     right: "16px",
-    bottom: "16px",
+    top: "20px",
     "z-index": "2147483647",
-    width: "min(360px, calc(100vw - 32px))",
+    width: "min(440px, calc(100vw - 32px))",
     visibility: "visible",
     display: "block",
     "pointer-events": "auto",
@@ -27,17 +27,17 @@ export function renderPageConsumptionAlert(payload) {
   css.replaceSync(`
     :host{font:14px/1.5 system-ui,sans-serif;color:#183d33;color-scheme:light}
     *{box-sizing:border-box} [hidden]{display:none!important}
-    .card{font:14px/1.5 system-ui,sans-serif;color:#6e4c0c;padding:18px;border:1px solid #ead8a1;border-radius:14px;background:#fff8e5;box-shadow:0 8px 32px #142b2230}
-    .card.critical{background:#fff1ed;border-color:#efcbc2;color:#8e3026}
+    .card{font:16px/1.5 system-ui,sans-serif;color:#6e4c0c;padding:22px;border:2px solid #d5a944;border-left-width:6px;border-radius:14px;background:#fff8e5;box-shadow:0 12px 40px #142b2240;max-height:calc(100dvh - 40px);overflow:auto}
+    .card.critical{background:#fff1ed;border-color:#c95b4b;color:#8e3026}
     .heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .brand{font-weight:750;font-size:12px;letter-spacing:.06em}
-    h2{font:700 16px/1.4 system-ui,sans-serif;margin:10px 0 8px}
-    p{margin:0;font-size:13px}
+    h2{font:750 20px/1.4 system-ui,sans-serif;margin:12px 0 10px}
+    p{margin:0;font-size:15px}
     button{font:600 13px/1.5 system-ui,sans-serif;cursor:pointer;border:1px solid #bfd7cb;background:#fff;color:#183d33;border-radius:8px;padding:7px 12px}
     button:focus-visible{outline:3px solid #167c69;outline-offset:3px}
-    .close{font-size:20px;line-height:1;padding:5px 8px;border-color:transparent;background:transparent;color:inherit}
-    .chip{display:block;margin-left:auto;box-shadow:0 4px 20px #142b2226;border-color:#ead8a1;background:#fff8e5;max-width:100%;white-space:normal;text-align:left}
-    .chip.critical{background:#fff1ed;border-color:#efcbc2;color:#8e3026}
+    .close{font-size:24px;line-height:1;padding:8px 10px;border-color:transparent;background:transparent;color:inherit}
+    .chip{display:block;margin-left:auto;font-size:15px;font-weight:750;padding:12px 18px;min-height:48px;box-shadow:0 8px 24px #142b2240;border:2px solid #d5a944;background:#fff8e5;max-width:100%;white-space:normal;text-align:left}
+    .chip.critical{background:#fff1ed;border-color:#c95b4b;color:#8e3026}
   `);
   root.adoptedStyleSheets = [css];
   const card = document.createElement("aside");

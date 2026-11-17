@@ -154,6 +154,6 @@ Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras d
 
 ### Aviso sobre a própria página (0.8.0)
 
-Com a captura ativa, os alertas aparecem no canto inferior direito da aba HTTP(S) monitorada. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o percentual. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
+Com a captura ativa, os alertas aparecem no canto superior direito da aba HTTP(S) monitorada. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o percentual. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
 
 O indicador acompanha a aba monitorada e reaparece após recarregar, respeitando confirmações do ciclo. Encerrar a captura, renovar o ciclo ou ficar abaixo de 70% remove o aviso da página. Ao sair da aba, o aviso é removido dela. A apresentação é feita em Shadow DOM de um mundo isolado CDP, sem requisições adicionais ou novas permissões de acesso. Páginas internas/protegidas do Chrome continuam fora da captura. Não usa janelas modais que interrompem a navegação.

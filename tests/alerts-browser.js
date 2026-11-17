@@ -147,6 +147,11 @@ try {
     "aviso se mantém sem painel e sem bloqueios",
   );
   await mkdir("artifacts", { recursive: true });
+  const desktopBounds = await pageNotice.boundingBox();
+  assert.ok(
+    desktopBounds.width >= 430 && desktopBounds.y <= 24,
+    "aviso maior no topo da página",
+  );
   await page.screenshot({ path: "artifacts/alerta-na-pagina.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   const noticeBounds = await pageNotice.boundingBox();
