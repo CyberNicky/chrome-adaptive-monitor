@@ -1,6 +1,6 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.7.0 acrescenta o item 3: alertas de consumo em 70%, 90% e 100%, com aviso no painel, notificações do Chrome e confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.8.0 amplia o item 3: alertas de consumo em 70%, 90% e 100% aparecem sobre a própria página monitorada, além do painel e das notificações do Chrome, com confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
@@ -90,7 +90,7 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.7.0** acrescenta a permissão `notifications` para avisar sobre consumo com o painel fechado. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.8.0** apresenta o aviso sobre a própria página, sem novas permissões. A permissão `notifications`, adicionada em 0.7.0, continua permitindo avisos nativos opcionais. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
 
 ## Comparar o consumo das abas
 
@@ -151,3 +151,9 @@ A extensão solicita uma notificação nativa por faixa, mesmo com o painel fech
 O estado de tentativa é persistido antes da chamada à [API de notificações do Chrome](https://developer.chrome.com/docs/extensions/reference/api/notifications), evitando repetição após reinício. Se o armazenamento falhar, não é enviada notificação nativa. Se a API recusar, o painel informa a falha e mantém o aviso, sem repetir a mesma tentativa a cada atualização. A exibição pelo sistema operacional depende das permissões do Chrome e das configurações de notificações/Foco; confirmação da API não comprova um banner visível no desktop.
 
 Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras de bytes, salto de faixas, confirmação, falhas, renovação e reinício. O teste em Chrome chama a API real e valida o aviso com o painel fechado e a persistência. O histórico consultável do item 4 ainda não está implementado.
+
+### Aviso sobre a própria página (0.8.0)
+
+Com a captura ativa, os alertas aparecem no canto inferior direito da aba HTTP(S) monitorada. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o percentual. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
+
+O indicador acompanha a aba monitorada e reaparece após recarregar, respeitando confirmações do ciclo. Encerrar a captura, renovar o ciclo ou ficar abaixo de 70% remove o aviso da página. Ao sair da aba, o aviso é removido dela. A apresentação é feita em Shadow DOM de um mundo isolado CDP, sem requisições adicionais ou novas permissões de acesso. Páginas internas/protegidas do Chrome continuam fora da captura. Não usa janelas modais que interrompem a navegação.

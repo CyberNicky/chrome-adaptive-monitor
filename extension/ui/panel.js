@@ -97,6 +97,8 @@ function renderAdaptation() {
 
 function renderConsumptionAlert() {
   const alert = state.consumptionAlert;
+  $("page-alert-error").hidden = !state.pageAlertError;
+  $("page-alert-error").textContent = state.pageAlertError ?? "";
   $("consumption-alert").hidden = !alert?.visible;
   $("consumption-alert").dataset.severity =
     alert?.current?.severity ?? "warning";

@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.7.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas persistentes de consumo estão disponíveis; a consulta ao histórico de sessões anteriores segue pendente.
+A entrega 0.8.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas persistentes de consumo estão disponíveis; a consulta ao histórico de sessões anteriores segue pendente.
 
 ## Fluxo implementado
 
@@ -119,3 +119,11 @@ O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova per
 A fila do controlador serializa publicação e confirmação. A mensagem **Entendi** inclui faixa e identificador do ciclo: uma tela antiga não pode confirmar uma faixa superior ou um ciclo novo. A marca de tentativa é gravada antes da chamada nativa, favorecendo não repetir notificações após um reinício. Isso não é uma transação com o sistema operacional: se o processo cair nesse intervalo, o aviso continua no painel, mas o banner nativo pode não ser entregue. Falhas de persistência impedem o envio; falhas da API mantêm o aviso e são informadas no painel.
 
 O teste de navegador usa um documento de imagem da extensão como canal de consulta, sem manter um painel de usuário aberto. Observa chamadas encaminhadas à API real, cruza faixas, confirma o aviso, fecha/reabre o Chrome e verifica o novo ciclo. O teste não afirma visibilidade do banner do sistema operacional em execução headless. A consulta a sessões antigas é o item 4 e permanece fora deste incremento.
+
+## Aviso de consumo na página (0.8.0 / complemento do item 3)
+
+`effectors/chrome-page-alert-effector.js` apresenta o estado dos alertas no frame principal da aba monitorada. `page-consumption-alert.js` cria um cartão em Shadow DOM com texto seguro via `textContent`, estilos próprios e opção de recolher para um indicador de percentual. Não replica o cartão em iframes. O aviso independe do modo de economia e da preferência por notificações nativas.
+
+O botão comunica confirmação por `Runtime.addBinding` restrito ao mundo isolado do aviso. O controlador valida a faixa e o identificador do ciclo pelos mesmos critérios do painel e persiste a confirmação. O estado da franquia, as regras de adaptação e a política de 70%/90%/100% permanecem iguais. O indicador continua informando o percentual após confirmar, e pode reabrir o cartão localmente.
+
+A transição entre abas remove o aviso anterior antes de desconectar o sensor. Navegação/recarregamento reinstala a apresentação no frame principal, e uma duração renovável de seis segundos remove elementos órfãos se a extensão for desconectada. Encerramento, renovação e consumo abaixo da faixa de alerta removem cartão e indicador. Uma falha de apresentação não interrompe o monitoramento e é indicada no painel. Essa ação de comunicação amplia a interface do sistema gerenciador sobre o sistema gerenciado, sem acrescentar política de bloqueio ou permissão de acesso a sites.

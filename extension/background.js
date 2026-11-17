@@ -24,12 +24,20 @@ import { analyzeBudget } from "./analysis/budget-analyzer.js";
 import { planAdaptation } from "./planning/adaptation-planner.js";
 import { createRequestEffector } from "./effectors/chrome-request-effector.js";
 
+import {
+  createPageAlertEffector,
+  PAGE_ALERT_BINDING,
+} from "./effectors/chrome-page-alert-effector.js";
 import { createContentEffector } from "./effectors/chrome-content-effector.js";
 const contentEffector = createContentEffector({
   sendCommand: (target, method, params) =>
     chrome.debugger.sendCommand(target, method, params),
   tabs: chrome.tabs,
   runtimeId: chrome.runtime.id,
+});
+const pageAlertEffector = createPageAlertEffector({
+  sendCommand: (target, method, params) =>
+    chrome.debugger.sendCommand(target, method, params),
 });
 const consumptionAlerts = createConsumptionAlerts({
   store: alertStore,
@@ -149,6 +157,7 @@ function snapshot() {
       metrics: aggregateMetrics(null),
       budgetSettings,
       usageError,
+      pageAlertError: pageAlertEffector.error,
       consumptionAlert: consumptionAlerts.snapshot,
       adaptation,
     };
@@ -158,6 +167,7 @@ function snapshot() {
     metrics: aggregateMetrics(session),
     budgetSettings,
     usageError,
+    pageAlertError: pageAlertEffector.error,
     consumptionAlert: consumptionAlerts.snapshot,
     adaptation,
   };
@@ -191,6 +201,15 @@ async function publish() {
     budgetSettings,
     !usageError,
   );
+  await pageAlertEffector.apply(
+    session?.recording ? session.tabId : null,
+    consumptionAlerts.snapshot,
+    analyzeBudget(
+      budgetSettings,
+      budgetUsage?.consumedBytes ?? 0,
+      budgetUsage?.cycle,
+    ),
+  );
   const value = snapshot();
   for (const port of ports) {
     try {
@@ -221,6 +240,7 @@ async function releaseCurrentTab() {
   if (tabId !== null) {
     interruptTabRequests(session, tabId);
     await synchronizeAdaptation();
+    await pageAlertEffector.clear(tabId);
     contentEffector.forgetTab(tabId);
     await detachSensor(tabId).catch(() => {});
   }
@@ -399,6 +419,30 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
 chrome.debugger.onEvent.addListener((source, method, params) => {
   void ready.then(async () => {
     if (!session?.recording || source.tabId !== session.tabId) return;
+    if (
+      method === "Runtime.bindingCalled" &&
+      params.name === PAGE_ALERT_BINDING &&
+      !source.sessionId
+    ) {
+      if (typeof params.payload !== "string" || params.payload.length > 512)
+        return;
+      let acknowledgment;
+      try {
+        acknowledgment = JSON.parse(params.payload);
+      } catch {
+        return;
+      }
+      if (!acknowledgment || typeof acknowledgment.token !== "string") return;
+      automatic(async () => {
+        await publish();
+        await consumptionAlerts.acknowledge(
+          acknowledgment.level,
+          acknowledgment.token,
+        );
+        await publish();
+      });
+      return;
+    }
     if (method === "Target.attachedToTarget") {
       const child = { tabId: source.tabId, sessionId: params.sessionId };
       // Resume before evaluating the DOM: creating an isolated world in a
@@ -430,7 +474,11 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
       return;
     }
     if (method === "Page.frameNavigated") {
-      automatic(() => contentEffector.refreshTarget(source));
+      pageAlertEffector.invalidate(source.tabId);
+      automatic(async () => {
+        await contentEffector.refreshTarget(source);
+        await publish();
+      });
       return;
     }
     // Close the previous cycle before processing bytes received after midnight.
@@ -477,7 +525,11 @@ chrome.tabs.onRemoved.addListener((tabId) =>
 
 // Renew the page guard lease while the monitored tab is restricted.
 setInterval(() => {
-  if (session?.recording && adaptation?.playbackBlocked) automatic(publish);
+  if (
+    session?.recording &&
+    (adaptation?.playbackBlocked || consumptionAlerts.snapshot.current)
+  )
+    automatic(publish);
 }, 2000);
 
 // Alarms survive worker suspension. Recheck on every worker start as well.

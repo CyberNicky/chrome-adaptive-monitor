@@ -69,7 +69,7 @@ async function state() {
   });
   return lastState;
 }
-async function consumeTo(target) {
+async function activateDemo() {
   const tabId = await worker.evaluate(
     async (url) =>
       (await chrome.tabs.query({})).find((t) => t.url === `${url}/`).id,
@@ -83,6 +83,9 @@ async function consumeTo(target) {
     async () => (await state()).session.tabId === tabId,
     "aba da demo monitorada",
   );
+}
+async function consumeTo(target) {
+  await activateDemo();
   const value = await state();
   await page.evaluate(
     async (size) => (await fetch(`/api/payload?size=${size}`)).text(),
@@ -102,6 +105,9 @@ try {
   await panel.getByLabel("Quantidade de dados").fill("1");
   await panel.getByLabel("Unidade", { exact: true }).selectOption("MB");
   await panel
+    .getByLabel("Ativar economia automática durante a captura")
+    .uncheck();
+  await panel
     .getByRole("button", { name: "Salvar configuração", exact: true })
     .click();
   await until(
@@ -120,6 +126,58 @@ try {
   await consumeTo(720000);
   assert.equal((await state()).consumptionAlert.current.level, 70);
   assert.equal(await attempts(), 1, "alerta enviado com painel fechado");
+  const pageNotice = page.locator("navega-consumption-alert");
+  await pageNotice
+    .getByRole("heading", { name: "Atenção ao consumo da franquia" })
+    .waitFor();
+  assert.equal(
+    await pageNotice.count(),
+    1,
+    "aviso único sobre a própria página",
+  );
+  assert.equal(
+    (await state()).adaptation.mode,
+    "normal",
+    "aviso independente do bloqueio",
+  );
+  await new Promise((resolve) => setTimeout(resolve, 6500));
+  assert.equal(
+    await pageNotice.isVisible(),
+    true,
+    "aviso se mantém sem painel e sem bloqueios",
+  );
+  await mkdir("artifacts", { recursive: true });
+  await page.screenshot({ path: "artifacts/alerta-na-pagina.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const noticeBounds = await pageNotice.boundingBox();
+  assert.ok(
+    noticeBounds.x >= 0 && noticeBounds.x + noticeBounds.width <= 390,
+    "aviso cabe em tela estreita",
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const other = await context.newPage();
+  await other.goto(`${base}/?overlay-test=1`);
+  const otherId = await worker.evaluate(
+    async (url) => (await chrome.tabs.query({})).find((t) => t.url === url).id,
+    `${base}/?overlay-test=1`,
+  );
+  await worker.evaluate(
+    (id) => chrome.tabs.update(id, { active: true }),
+    otherId,
+  );
+  await until(
+    async () => (await state()).session.tabId === otherId,
+    "aviso acompanha nova aba",
+  );
+  await other.locator("navega-consumption-alert").waitFor({ state: "visible" });
+  await pageNotice.waitFor({ state: "detached" });
+  await activateDemo();
+  await pageNotice.waitFor({ state: "visible" });
+  await other
+    .locator("navega-consumption-alert")
+    .waitFor({ state: "detached" });
+  await other.close();
+
   await openPanel();
   await panel.locator("#consumption-alert").waitFor({ state: "visible" });
   assert.match(
@@ -131,6 +189,32 @@ try {
   assert.equal(await attempts(), 1, "reabrir painel não repete notificação");
   await panel.getByRole("button", { name: "Entendi", exact: true }).click();
   await panel.locator("#consumption-alert").waitFor({ state: "hidden" });
+  await activateDemo();
+  await pageNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .waitFor();
+  const chipBounds = await pageNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .boundingBox();
+  assert.ok(
+    chipBounds.y >= 0 && chipBounds.y + chipBounds.height <= 720,
+    "indicador recolhido permanece dentro da tela",
+  );
+  await page.screenshot({ path: "artifacts/indicador-na-pagina.png" });
+  await pageNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .click();
+  assert.equal(
+    await pageNotice.getByRole("heading").isVisible(),
+    true,
+    "indicador permite reabrir o aviso",
+  );
+  await pageNotice
+    .getByRole("button", { name: "Recolher aviso de consumo" })
+    .click();
+  await pageNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .waitFor();
   await panel.reload();
   await until(
     async () => !(await state()).consumptionAlert.visible,
@@ -153,6 +237,7 @@ try {
   await panel
     .getByRole("button", { name: "Encerrar captura", exact: true })
     .click();
+  await page.locator("navega-consumption-alert").waitFor({ state: "detached" });
   const beforeRestart = await state();
   await context.close();
   await launch();
@@ -175,6 +260,26 @@ try {
     .click();
   await consumeTo(1030000);
   assert.equal((await state()).consumptionAlert.current.level, 100);
+  const restartedNotice = page.locator("navega-consumption-alert");
+  await restartedNotice
+    .getByRole("heading", { name: "Franquia estimada atingida" })
+    .waitFor();
+  await restartedNotice
+    .getByRole("button", { name: "Recolher aviso de consumo" })
+    .click();
+  await until(
+    async () => !(await state()).consumptionAlert.visible,
+    "recolher na página confirma o alerta no controlador",
+  );
+  await page.reload();
+  await restartedNotice
+    .getByRole("button", { name: /Abrir aviso de consumo/ })
+    .waitFor();
+  assert.equal(
+    await restartedNotice.getAttribute("data-expanded"),
+    "false",
+    "recarregar mantém indicador sem repetir cartão confirmado",
+  );
   assert.equal(
     await attempts(),
     1,
@@ -191,8 +296,8 @@ try {
   );
   assert.equal(
     (await state()).consumptionAlert.visible,
-    true,
-    "painel continua avisando com notificações desligadas",
+    false,
+    "confirmação da página permanece com notificações desligadas",
   );
   await panel.reload();
   assert.equal((await state()).budgetSettings.notificationsEnabled, false);
@@ -209,6 +314,7 @@ try {
     "renovação limpa aviso",
   );
   assert.equal((await state()).adaptation.consumedBytes, 0);
+  await page.locator("navega-consumption-alert").waitFor({ state: "detached" });
   const alertState = await worker.evaluate(
     async () =>
       (await chrome.storage.local.get("consumptionAlertState"))
@@ -226,7 +332,7 @@ try {
         browser: context.browser().version(),
         levels: [70, 90, 100],
         confirmed:
-          "Avisos com painel fechado, chamada à API real, confirmação persistente, reinício sem repetição, preferência de notificações e renovação.",
+          "Aviso sobre a página sem painel e sem bloqueios, indicador recolhível, confirmação por binding isolado, reinício sem repetição, notificações e renovação.",
         nativeNotificationError: beforeRenewal.consumptionAlert.error,
       },
       null,
