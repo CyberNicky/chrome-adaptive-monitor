@@ -23,4 +23,4 @@ Os bytes são estimativas dos períodos monitorados, não a fatura da operadora.
 
 Validação automatizada: `npm run check`, `npm test` e `npm run test:e2e`. O teste `tests/alerts-browser.js` exercita a API real do Chrome, painel fechado, aviso dentro da página em modo Normal, duração renovável, indicador recolhido, confirmação por mundo isolado, recarregamento, reinício e renovação com perfil temporário. A visibilidade do banner do sistema operacional requer a conferência manual acima. Evidências em `artifacts/alerts-verification.json` e `artifacts/alerta-consumo.png`.
 
-Esta entrega cobre somente o item 3. O histórico consultável da sessão anterior, item 4, permanece pendente.
+Este roteiro cobre o item 3. O histórico consultável do item 4 está disponível: [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md).

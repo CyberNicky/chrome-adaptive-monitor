@@ -1,6 +1,6 @@
 # Etapa 1 — teste incremental dos modos (atualizado para 0.6.0)
 
-Este roteiro verifica os modos do item 1. O calendário e acumulado do item 2 já estão disponíveis: veja [TESTE-ETAPA-2.md](TESTE-ETAPA-2.md). Os alertas do item 3 estão disponíveis em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico anterior (item 4) segue pendente.
+Este roteiro verifica os modos do item 1. O calendário e acumulado do item 2 já estão disponíveis: veja [TESTE-ETAPA-2.md](TESTE-ETAPA-2.md). Os alertas do item 3 estão disponíveis em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico anterior está disponível: [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md).
 
 1. Recarregue o cartão do Navega em `chrome://extensions`. Se o Chrome solicitar a nova permissão de bloqueio, conceda-a para testar. Feche/reabra o painel.
 2. Execute `npm run demo` na raiz do projeto e abra `http://127.0.0.1:4173`.
@@ -14,6 +14,6 @@ Este roteiro verifica os modos do item 1. O calendário e acumulado do item 2 j�
 
 Os números do teste são decimais: 1 MB = 1.000.000 bytes, com limites em 700.000 e 900.000 bytes. O HTML, os scripts e outros recursos também consomem bytes, por isso o modo pode mudar antes de completar sete/nove cliques. Espere a indicação confirmada no cabeçalho antes de testar novos recursos.
 
-As regras de rede bloqueiam próximos downloads; o controle complementar pausa a mídia já carregada e oculta imagens nos elementos suportados, sem precisar recarregar. Isso não recupera bytes já consumidos. Desde 0.6.0, iniciar uma nova captura ou reiniciar o Chrome preserva o consumo usado pelos modos no ciclo atual. Reiniciar ainda elimina os registros temporários da captura. Para repetir este teste em um ciclo já consumido, aumente a franquia ou use um perfil separado de teste; limpar a captura não zera a franquia.
+As regras de rede bloqueiam próximos downloads; o controle complementar pausa a mídia já carregada e oculta imagens nos elementos suportados, sem precisar recarregar. Isso não recupera bytes já consumidos. Desde 0.6.0, iniciar uma nova captura ou reiniciar o Chrome preserva o consumo usado pelos modos no ciclo atual. Desde 0.10.0, o histórico também preserva as sessões recentes após reiniciar. Para repetir este teste em um ciclo já consumido, aumente a franquia ou use um perfil separado de teste; limpar a captura não zera a franquia.
 
 Validação automatizada: `npm test`, `npm run check`, `npm run test:e2e`. O teste real dos modos observa as requisições no servidor para confirmar que o bloqueio aconteceu antes da transferência, testa a preservação de texto/CSS/JavaScript, o escopo por aba e a remoção das regras. Screenshots e relatório são salvos em `artifacts/`.

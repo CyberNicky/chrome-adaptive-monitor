@@ -1,8 +1,8 @@
 # Continuação do desenvolvimento
 
-A versão 0.9.0 entrega os itens 1, 2 e 3: modos por metas internas, período/renovação da franquia e alertas de consumo persistentes no painel e sobre a página monitorada. Aguardar os testes do usuário antes de avançar ao item 4.
+A versão 0.10.0 entrega os quatro incrementos solicitados: modos por metas internas, ciclo da franquia, alertas e consulta persistente às sessões anteriores. Aguardar os testes do usuário antes de ampliar o escopo.
 
-Próximo incremento: **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md).
+O roteiro desta entrega está em [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md). As evoluções abaixo continuam propostas para a arquitetura completa.
 
 ## 1. Consolidar o monitoramento
 
@@ -12,7 +12,7 @@ Critério de conclusão: cenários reproduzíveis com cobertura documentada e di
 
 ## 2. Ampliar Conhecimento
 
-A configuração básica de plano e franquia já é persistida localmente. As metas de adaptação são internas ao sistema. O período e seu contador já estão implementados. Faltam prioridades e exceções por domínio. Definir retenção e consentimento para histórico permanente. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas. O modo de economia será estado do ciclo autoadaptativo, e não uma preferência manual.
+A configuração básica de plano e franquia já é persistida localmente. As metas de adaptação são internas ao sistema. O período e seu contador já estão implementados. Faltam prioridades e exceções por domínio. O histórico local já usa retenção de até 10 sessões e 4 MB; avaliar políticas de retenção maiores e eventual sincronização somente se necessárias. Separar parâmetros de política, medições observadas e regras efetivamente aplicadas. O modo de economia será estado do ciclo autoadaptativo, e não uma preferência manual.
 
 Critério de conclusão: configurar e recuperar orçamento e exceções, com testes das unidades, período e reinicialização do orçamento.
 

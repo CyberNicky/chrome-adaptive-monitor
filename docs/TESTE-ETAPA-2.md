@@ -15,7 +15,7 @@
 2. Consuma os recursos da demo. O bloco dos modos mostra **utilizado neste ciclo** e a próxima renovação. Os cartões, a tabela e o ranking continuam mostrando a captura atual, portanto podem ter valores diferentes do ciclo.
 3. Encerre a captura e anote o consumo do ciclo. Clique em **Limpar**: os registros são apagados, mas o consumo da franquia permanece.
 4. Inicie outra captura. O acumulado anterior continua e o modo usa esse total. Se já estiver em Econômico/Restritivo, a proteção é aplicada novamente.
-5. Encerre, feche totalmente o Chrome e reabra. O total da franquia e as datas permanecem. Os registros da captura ainda são temporários; a consulta de sessões antigas será o item 4.
+5. Encerre, feche totalmente o Chrome e reabra. O total da franquia e as datas permanecem. Desde 0.10.0, consulte os registros anteriores em Histórico de sessões.
 6. Edite nome, quantidade ou datas. O consumo já contabilizado é preservado. Aumentar a franquia pode reduzir o percentual e liberar o modo; isso não apaga bytes.
 
 ## Validar a renovação
@@ -28,4 +28,4 @@ Não é necessário mudar o relógio do computador. Para validar agora, execute 
 
 O acumulado é uma estimativa apenas do que a captura observou, com o mesmo limite de 3.000 registros por captura. Ao atingir esse limite, inicie outra captura para continuar a contabilização do ciclo. Não consulta a operadora, não recupera tráfego anterior à instalação e não conta abas inativas, outros aplicativos ou uploads. Remover a extensão ou apagar seus dados locais elimina a configuração e esse acumulado. São usados a data e o horário do dispositivo.
 
-A persistência do total é uma dependência do item 2. Alertas de consumo (item 3) estão disponíveis desde 0.7.0: [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico consultável de sessões/ciclos anteriores (item 4) ainda não foi implementado.
+A persistência do total é uma dependência do item 2. Alertas de consumo (item 3) estão disponíveis desde 0.7.0: [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico de sessões do item 4 está disponível: [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md). Não há consulta separada de ciclos antigos.

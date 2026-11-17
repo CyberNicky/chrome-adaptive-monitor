@@ -6,6 +6,10 @@ import {
 } from "./monitoring/request-collector.js";
 import { sanitizeUrl } from "./monitoring/consumption-estimator.js";
 import { aggregateMetrics } from "./monitoring/metrics-aggregator.js";
+import {
+  createHistoryStore,
+  historySessionId,
+} from "./knowledge/history-store.js";
 import { sessionStore } from "./knowledge/session-store.js";
 import {
   attachSensor,
@@ -44,6 +48,8 @@ const consumptionAlerts = createConsumptionAlerts({
   notifications: chrome.notifications,
   iconUrl: chrome.runtime.getURL("icons/icon128.png"),
 });
+const historyStore = createHistoryStore(chrome.storage.local);
+let historyError = null;
 const CYCLE_ALARM = "budget-cycle-renewal";
 let scheduledBoundary = null;
 let budgetUsage = null;
@@ -57,6 +63,12 @@ let mutation = Promise.resolve();
 const ports = new Set();
 const ready = sessionStore.load().then(async (saved) => {
   session = saved;
+  try {
+    await historyStore.load(session);
+  } catch {
+    historyError =
+      "Não foi possível recuperar o histórico salvo. A captura atual continua disponível.";
+  }
   budgetSettings = await budgetStore.load();
   budgetUsage = await usageStore.load();
   await consumptionAlerts.load();
@@ -150,9 +162,22 @@ function enqueue(operation) {
   mutation = result;
   return result;
 }
+function historyContext() {
+  return { budgetSettings, adaptation };
+}
+async function preserveSession(force = false) {
+  const saved = await historyStore.saveSession(
+    session,
+    historyContext(),
+    force,
+  );
+  if (saved) historyError = null;
+}
 function snapshot() {
   if (!session)
     return {
+      history: historyStore.summaries(session),
+      historyError,
       session: null,
       metrics: aggregateMetrics(null),
       budgetSettings,
@@ -163,6 +188,8 @@ function snapshot() {
     };
   const { active, ...publicSession } = session;
   return {
+    history: historyStore.summaries(session),
+    historyError,
     session: publicSession,
     metrics: aggregateMetrics(session),
     budgetSettings,
@@ -190,6 +217,13 @@ async function publish() {
     if (session)
       session.notice =
         "Não foi possível salvar a sessão. Exporte os registros disponíveis.";
+  }
+  try {
+    await preserveSession();
+  } catch (error) {
+    historyError = error.message?.startsWith("Esta sessão")
+      ? error.message
+      : "Não foi possível salvar o histórico. Exporte os registros antes de fechar o Chrome.";
   }
   await consumptionAlerts.synchronize(
     analyzeBudget(
@@ -330,6 +364,18 @@ async function handle(message) {
       await consumptionAlerts.acknowledge(message.level, message.token);
       await publish();
       return snapshot();
+    case "GET_HISTORY_SESSION":
+      return { entry: historyStore.get(message.id) };
+    case "DELETE_HISTORY_SESSION":
+      if (session?.recording && historySessionId(session) === message.id)
+        throw new Error("Encerre a captura antes de excluir esta sessão.");
+      await historyStore.remove(message.id);
+      if (historySessionId(session) === message.id) {
+        updateUsage();
+        session = null;
+      }
+      await publish();
+      return snapshot();
     case "SAVE_BUDGET":
       updateUsage();
       budgetSettings = await budgetStore.save(message.settings);
@@ -343,6 +389,7 @@ async function handle(message) {
           "Abra uma página HTTP(S) para iniciar a captura automática.",
         );
       updateUsage();
+      await preserveSession(true);
       const previous = session;
       session = createSession(tab);
       session.recording = true;
@@ -382,6 +429,7 @@ async function handle(message) {
       if (session?.recording)
         throw new Error("Encerre a captura antes de limpar os registros.");
       updateUsage();
+      await preserveSession(true);
       session = null;
       await publish();
       return snapshot();

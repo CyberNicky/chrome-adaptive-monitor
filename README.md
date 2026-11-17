@@ -1,6 +1,6 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.9.0 mantém um monitor de consumo sobre a própria página durante toda a captura: verde no modo Normal, amarelo no Econômico e vermelho no Restritivo. Os alertas de 70%, 90% e 100% continuam disponíveis no painel e nas notificações do Chrome, com confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.10.0 acrescenta o histórico persistente de sessões, com consulta, exportação e exclusão. Mantém o monitor de consumo sobre a própria página durante toda a captura: verde no modo Normal, amarelo no Econômico e vermelho no Restritivo. Os alertas de 70%, 90% e 100% continuam disponíveis no painel e nas notificações do Chrome, com confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. Os quatro incrementos solicitados estão implementados como protótipo; a evolução das demais partes da arquitetura está documentada nas próximas etapas.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
@@ -24,7 +24,7 @@ O botão de engrenagem permite configurar plano, franquia em MB/GB, data inicial
 5. Abra **http://127.0.0.1:4173** no Chrome.
 6. Clique no ícone da extensão, depois em **Iniciar captura** e **Recarregar página**.
 7. Experimente os botões da página e observe o painel. Troque de aba para testar a captura automática, sem encerrar nem iniciar outra sessão. Use **Abrir painel amplo** para projetar a tabela em uma aba maior.
-8. Use **Encerrar captura** e **Exportar JSON** para guardar a evidência. Encerrar interrompe o sensor e preserva os registros. **Iniciar nova sessão** substitui a anterior.
+8. Use **Encerrar captura** e **Exportar JSON** para guardar a evidência. Encerrar interrompe o sensor e preserva os registros. **Iniciar nova sessão** abre outra captura e preserva a anterior no histórico.
 
 O aviso de depuração do Chrome é esperado: o sensor usa `chrome.debugger` para acessar o domínio Network do Chrome DevTools Protocol. Não abra o DevTools da **aba monitorada** durante a demonstração: ele pode desconectar a captura. Se isso acontecer, os registros são preservados e o painel informa a desconexão.
 
@@ -39,7 +39,7 @@ Veja o [roteiro de apresentação](docs/DEMONSTRACAO.md), o [mapeamento da arqui
 | Classificador de recursos                | HTML, CSS, JavaScript, imagem, áudio, vídeo, mídia, fonte, Fetch/XHR e outros                   |
 | Estimador de consumo                     | Usa bytes recebidos informados pelo Chrome; mantém valores parciais ou desconhecidos explícitos |
 | Agregador de métricas                    | Totais, tipos, domínios, ritmo médio, cache, pendências e falhas                                |
-| Conhecimento                             | Sessão temporária; plano, calendário e contador persistente do ciclo                            |
+| Conhecimento                             | Sessão ativa e histórico local; plano, calendário, alertas e contador do ciclo                  |
 | Análise, Planejamento, Execução e Efetor | Comparam consumo do ciclo com metas internas, selecionam o modo e aplicam regras por aba        |
 
 O sistema gerenciado continua sendo **o carregamento de recursos no Chrome**. Os sensores são implementados na extensão e interagem com as APIs do navegador. As regras de rede são o ponto principal de economia. Um controle complementar de reprodução, em mundo isolado via CDP, pausa mídia já carregada e oculta elementos de imagem no modo Restritivo; isso altera temporariamente a apresentação do DOM, sem modificar os arquivos do servidor.
@@ -60,7 +60,7 @@ São unidades decimais: **1 kB = 1.000 B; 1 MB = 1.000.000 B**. O total não equ
 - Abas vazias e páginas internas entram em espera sem encerrar a sessão. Ao visitar uma página HTTP(S), a captura retoma automaticamente. O próprio painel amplo é uma exceção: abri-lo mantém o último alvo. Fechar a aba monitorada mantém a sessão ativa para acompanhar a próxima página. **Encerrar captura** desliga a automação.
 - Ao ativar uma aba que já terminou de carregar, somente as próximas requisições serão observadas. Recarregue manualmente se quiser registrar o carregamento inicial completo; a extensão não recarrega páginas por conta própria.
 - Até **3.000 requisições por sessão**. Ao atingir o limite, o painel informa que novos registros foram ignorados; os totais cobrem apenas os registros retidos. Exporte e inicie outra sessão.
-- Registros de captura ficam na memória da sessão do navegador: reabrir o painel preserva os dados, reiniciar o navegador os remove. A configuração e o contador do ciclo usam `chrome.storage.local` e permanecem após reiniciar o navegador. Limpar a captura não zera a franquia. Não há ainda consulta às sessões anteriores.
+- A captura ativa usa um cache na memória da sessão do navegador e pontos salvos em `storage.local`. Sessões encerradas ficam no histórico local; após reiniciar, uma captura que estava ativa é recuperada como interrompida até o último ponto salvo, sem voltar a monitorar sozinha. A configuração e o contador do ciclo usam `chrome.storage.local` e permanecem após reiniciar o navegador. Limpar a captura não zera a franquia. Consulte as capturas anteriores em **Histórico de sessões**; excluir um registro não reduz o consumo da franquia.
 - Sem coleta de corpos das respostas, cookies ou cabeçalhos de autenticação. URLs são armazenadas sem query string, fragmento ou credenciais. Caminhos ainda podem conter informações pessoais; revise o JSON antes de compartilhar.
 - Sem servidor de telemetria. O servidor da demo atende apenas no loopback `127.0.0.1`.
 - Páginas internas e protegidas do Chrome não podem ser monitoradas. Iframes e workers instrumentados são observados, mas há limites de cobertura em transições de contexto, service workers e conexões de longa duração.
@@ -90,7 +90,7 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.9.0** mantém o monitor no canto inferior direito inclusive no modo Normal, com tamanho ampliado e sem novas permissões. A permissão `notifications`, adicionada em 0.7.0, continua permitindo avisos nativos opcionais. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.10.0** acrescenta o histórico local, preservando o monitor no canto inferior direito e sem novas permissões. A permissão `notifications`, adicionada em 0.7.0, continua permitindo avisos nativos opcionais. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
 
 ## Comparar o consumo das abas
 
@@ -114,7 +114,7 @@ A implementação usa tipos `media`/`image` e, para Fetch/XHR, extensões de arq
 
 O painel anuncia o modo depois de aplicar as regras e o controle de conteúdo; falhas são sinalizadas. Essa confirmação da API é diferente de comprovar o bloqueio de todo conteúdo de um site; os testes da demo verificam ambos os pontos. Atualizações são agrupadas (250 ms), portanto requisições já iniciadas antes da aplicação do novo modo podem terminar normalmente.
 
-**Ainda pendente, para teste incremental:** item 4: consulta de sessões anteriores. A persistência do total do ciclo foi implementada como base necessária do item 2. Iniciar outra captura, limpar a tabela ou reiniciar o navegador preserva esse total.
+**Quatro incrementos entregues:** modos automáticos, ciclo da franquia, alertas e histórico de sessões. A persistência do total do ciclo foi implementada como base necessária do item 2. Iniciar outra captura, limpar a tabela ou reiniciar o navegador preserva esse total.
 
 `npm run test:e2e` executa o monitoramento e depois os testes reais dos três modos, com verificação de que recursos bloqueados não chegaram ao servidor, preservação de texto/CSS/JS, escopo por aba e restauração do modo Normal. Evidências em `artifacts/modo-economico.png`, `artifacts/modo-restritivo.png` e `artifacts/adaptation-verification.json`.
 
@@ -136,7 +136,7 @@ A próxima renovação ocorre à meia-noite local, na data exibida. O acumulado 
 
 O controlador agenda uma conferência com [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms) e também confere o calendário ao iniciar, abrir o painel e processar medições. Se o computador estiver desligado ou suspenso, a renovação será processada ao retomar; não depende de manter o painel aberto. O total e os checkpoints de bytes são persistidos juntos em [storage.local](https://developer.chrome.com/docs/extensions/reference/api/storage). O total final de uma requisição substitui o parcial, sem somá-lo outra vez; requisições que atravessam a renovação levam apenas os novos bytes ao ciclo novo.
 
-Não há migração de tráfego que nunca foi observado. Ao atualizar, somente registros disponíveis da captura e pertencentes ao ciclo atual podem inicializar a estimativa. O limite de 3.000 registros por captura continua valendo também para a cobertura do acumulado: ao atingi-lo, exporte e inicie outra captura, preservando o total do ciclo. Os alertas foram acrescentados na versão 0.7.0; ainda não há arquivo consultável de sessões/ciclos anteriores.
+Não há migração de tráfego que nunca foi observado. Ao atualizar, somente registros disponíveis da captura e pertencentes ao ciclo atual podem inicializar a estimativa. O limite de 3.000 registros por captura continua valendo também para a cobertura do acumulado: ao atingi-lo, exporte e inicie outra captura, preservando o total do ciclo. Os alertas foram acrescentados na versão 0.7.0; as sessões anteriores estão disponíveis desde 0.10.0. Não existe uma consulta separada de ciclos antigos da franquia.
 
 Teste manual: [TESTE-ETAPA-2.md](docs/TESTE-ETAPA-2.md). O teste automatizado `tests/cycle-browser.js` usa um relógio controlado exclusivamente no processo de teste para verificar a renovação por alarme, além de fechar/reabrir o navegador real e confirmar a persistência. Não há botão de reset ou simulação no produto.
 
@@ -150,10 +150,22 @@ A extensão solicita uma notificação nativa por faixa, mesmo com o painel fech
 
 O estado de tentativa é persistido antes da chamada à [API de notificações do Chrome](https://developer.chrome.com/docs/extensions/reference/api/notifications), evitando repetição após reinício. Se o armazenamento falhar, não é enviada notificação nativa. Se a API recusar, o painel informa a falha e mantém o aviso, sem repetir a mesma tentativa a cada atualização. A exibição pelo sistema operacional depende das permissões do Chrome e das configurações de notificações/Foco; confirmação da API não comprova um banner visível no desktop.
 
-Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras de bytes, salto de faixas, confirmação, falhas, renovação e reinício. O teste em Chrome chama a API real e valida o aviso com o painel fechado e a persistência. O histórico consultável do item 4 ainda não está implementado.
+Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras de bytes, salto de faixas, confirmação, falhas, renovação e reinício. O teste em Chrome chama a API real e valida o aviso com o painel fechado e a persistência. O histórico consultável do item 4 está disponível desde 0.10.0.
 
 ### Monitor sobre a própria página (0.9.0)
 
 Com a captura ativa, o monitor permanece no canto inferior direito da aba HTTP(S) monitorada desde o início, mesmo antes de qualquer alerta. O cartão mantém a largura de até 440 px, com adaptação para telas estreitas. A cor acompanha o modo efetivamente ativo: verde no Normal, amarelo no Econômico e vermelho no Restritivo. Não é necessário abrir ou expandir o painel, nem habilitar notificações do sistema operacional. Em 70%, 90% e 100%, o cartão apresenta consumo e saldo estimado. **Recolher aviso de consumo** confirma aquela faixa e mantém um indicador compacto com o modo e o percentual. O recolhimento no Normal também é preservado dentro do ciclo. Clique no indicador para consultar novamente; uma faixa maior abre o cartão automaticamente.
 
 O indicador acompanha a aba monitorada e reaparece após recarregar, respeitando confirmações do ciclo. Encerrar a captura remove o monitor da página. A renovação e o consumo abaixo de 70% mantêm o monitor verde no Normal; a renovação também reinicia as confirmações. Ao sair da aba, o aviso é removido dela. A apresentação é feita em Shadow DOM de um mundo isolado CDP, sem requisições adicionais ou novas permissões de acesso. Páginas internas/protegidas do Chrome continuam fora da captura. Não usa janelas modais que interrompem a navegação.
+
+## Etapa 4: histórico de sessões (0.10.0)
+
+O botão **Histórico de sessões**, próximo aos controles da captura, abre as sessões anteriores com início, fim, bytes observados, número de requisições e abas. Em **Ver detalhes**, os cartões, ranking, filtros e tabela passam a mostrar a sessão salva. A faixa **Sessão de...** identifica a consulta e **Voltar à captura atual** retorna aos dados ao vivo. A captura atual continua funcionando enquanto uma sessão antiga é consultada; o orçamento e o monitor flutuante continuam usando o ciclo atual.
+
+**Exportar JSON** exporta a sessão que está sendo consultada, com métricas e contexto de orçamento registrados na época. **Excluir sessão** apaga somente aquela sessão salva, sem alterar o consumo acumulado da franquia. **Limpar** os registros atuais preserva a sessão no histórico. Os dados de uma sessão já encerrada não são modificados por mudanças posteriores no plano ou no ciclo.
+
+A extensão guarda até **10 sessões**, contando o ponto de recuperação da captura ativa, e reserva até **4 MB** para o histórico. Se necessário, remove as sessões mais antigas para guardar as novas. Uma sessão individual que exceda esse espaço gera um erro visível e deve ser exportada; a captura não é apagada silenciosamente para iniciar outra. A gravação ao vivo é limitada a uma vez por segundo entre publicações; encerramento e limpeza solicitam gravação final. Uma interrupção abrupta pode deixar apenas o último ponto salvo, identificado como **Interrompida**. Os filtros e métricas refletem os registros efetivamente preservados.
+
+O histórico começa a ser gravado nesta versão; tráfego ou sessões descartadas por versões anteriores não podem ser reconstruídos. URLs continuam sem parâmetros, fragmentos e credenciais, mas caminhos podem conter dados pessoais. Não há servidor ou sincronização entre dispositivos. Remover a extensão ou apagar seus dados locais elimina o histórico.
+
+Veja o [roteiro do item 4](docs/TESTE-ETAPA-4.md). Os testes verificam limites de retenção, falha de armazenamento, snapshots imutáveis, consulta durante captura ativa, exportação com orçamento original, exclusão sem reduzir a franquia e recuperação ao fechar/reabrir o Chrome.

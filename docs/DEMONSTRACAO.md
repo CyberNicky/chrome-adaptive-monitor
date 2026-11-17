@@ -17,8 +17,8 @@ Abra a extensão no ícone fixado. Comece com o DevTools da aba de teste fechado
 5. **Clique em Simular erro e Repetir recurso em cache:** mostre HTTP 404 e a indicação de cache. O navegador pode reaproveitar o recurso e registrar 0 B transferidos.
 6. **Clique em Carregar mídia:** filtre por Áudio e depois Vídeo. Os dois arquivos são locais e válidos; a reprodução é opcional. Se o Chrome dividir em faixas, mais de uma requisição pode aparecer.
 7. **Troque de aba:** abra outra página HTTP(S). Mostre que a captura muda de alvo automaticamente e preserva os registros anteriores. Use o filtro **Aba de origem** para separar as requisições. Páginas já carregadas exigem recarregar para observar o início.
-8. **Encerre e exporte:** mostre que os registros permanecem no painel e podem ser salvos em JSON. Explique que reiniciar o Chrome remove a sessão em memória.
-9. **Mostre a arquitetura:** “Implementamos o Sensor, os quatro componentes do Monitoramento, orçamento e consumo por ciclo em Conhecimento, análise por metas, planejamento dos modos e aplicação das regras. A franquia renova conforme o calendário e há alertas persistentes de consumo; a consulta de sessões anteriores é a próxima etapa.”
+8. **Encerre e exporte:** mostre que os registros permanecem no painel e podem ser salvos em JSON. Abra Histórico de sessões e mostre uma captura anterior; reiniciar o Chrome preserva o histórico e recupera capturas interrompidas até o ponto salvo.
+9. **Mostre a arquitetura:** “Implementamos o Sensor, os quatro componentes do Monitoramento, orçamento e consumo por ciclo em Conhecimento, análise por metas, planejamento dos modos e aplicação das regras. A franquia renova conforme o calendário e há alertas persistentes de consumo; a consulta de sessões anteriores também está implementada.”
 
 ## Respostas curtas para dúvidas
 

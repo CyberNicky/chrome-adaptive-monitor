@@ -50,7 +50,7 @@
         >
           <span aria-hidden="true">⚙</span>
         </button>
-        <span class="version">PROTÓTIPO 0.9</span>
+        <span class="version">PROTÓTIPO 0.10</span>
       </div>
     </header>
     <dialog id="settings-dialog" class="settings-dialog">
@@ -167,6 +167,43 @@
         </div>
       </form>
     </dialog>
+    <dialog
+      id="history-dialog"
+      class="settings-dialog history-dialog"
+      aria-labelledby="history-title"
+    >
+      <div class="settings-form">
+        <div class="settings-heading">
+          <div>
+            <p class="eyebrow">CONHECIMENTO / HISTÓRICO</p>
+            <h2 id="history-title">Histórico de sessões</h2>
+          </div>
+          <button
+            id="close-history"
+            class="dialog-close"
+            type="button"
+            aria-label="Fechar histórico"
+          >
+            ×
+          </button>
+        </div>
+        <p class="history-note">
+          Até 10 sessões recentes salvas neste navegador. As mais antigas são
+          removidas quando o espaço reservado fica cheio.
+        </p>
+        <p id="history-empty" class="muted">
+          Nenhuma sessão anterior salva. Encerre uma captura para encontrá-la
+          aqui.
+        </p>
+        <p
+          id="history-dialog-error"
+          class="message error"
+          role="alert"
+          hidden
+        ></p>
+        <ol id="history-list" class="history-list"></ol>
+      </div>
+    </dialog>
     <main>
       <div class="intro">
         <div>
@@ -196,6 +233,7 @@
           >
             ↻ Recarregar página
           </button>
+          <button id="open-history" type="button">Histórico de sessões</button>
         </div>
         <p id="guidance" class="hint">
           Inicie a captura e recarregue a página para observar o carregamento
@@ -240,6 +278,21 @@
       <p id="notification-error" class="message" role="status" hidden></p>
       <p id="usage-error" class="message error" role="alert" hidden></p>
       <p id="adaptation-error" class="message error" role="alert" hidden></p>
+      <p id="history-error" class="message error" role="alert" hidden></p>
+      <section
+        id="selected-history"
+        class="selected-history"
+        aria-label="Sessão anterior selecionada"
+        hidden
+      >
+        <div>
+          <strong id="selected-history-title"></strong>
+          <p id="selected-history-info"></p>
+        </div>
+        <button id="back-to-current" type="button">
+          Voltar à captura atual
+        </button>
+      </section>
       <section class="stats" aria-label="Métricas da sessão">
         <article class="stat accent">
           <span class="label">TRANSFERÊNCIA OBSERVADA</span
@@ -380,8 +433,9 @@
           O Chrome exibe um aviso de depuração durante a captura. Abrir o
           DevTools ou cancelar esse aviso pode desconectar o sensor. URLs são
           registradas sem parâmetros, fragmentos ou credenciais; caminhos ainda
-          podem conter informações pessoais. Dados ficam na memória da sessão do
-          navegador, sem envio a servidores.
+          podem conter informações pessoais. Sessões recentes ficam salvas
+          localmente neste navegador, sem envio a servidores. O histórico pode
+          ser consultado e excluído pelo botão Histórico de sessões.
         </p>
       </details>
       <footer class="architecture">
@@ -392,7 +446,7 @@
         <div><strong>P</strong><span>Planejamento</span></div>
         <span class="connector">→</span>
         <div><strong>E</strong><span>Execução</span></div>
-        <p>Etapa 3 · alertas e consumo do ciclo da franquia</p>
+        <p>Etapa 4 · histórico local de sessões</p>
       </footer>
     </main>
     <script type="module" src="panel.js"></script>

@@ -24,6 +24,10 @@ let connection;
 let reconnect;
 let disposed = false;
 let budgetSettings = null;
+let selectedHistory = null;
+let historySignature = null;
+const displayedState = () => selectedHistory ?? state;
+const dateTime = (value) => new Date(value).toLocaleString("pt-BR");
 
 export function formatBytes(value) {
   if (value === null || value === undefined) return "—";
@@ -177,6 +181,10 @@ async function action(callback) {
   } catch (error) {
     $("error").textContent = error.message;
     $("error").hidden = false;
+    if ($("history-dialog").open) {
+      $("history-dialog-error").textContent = error.message;
+      $("history-dialog-error").hidden = false;
+    }
   } finally {
     busy = false;
     renderControls();
@@ -193,6 +201,10 @@ async function selectTarget() {
 }
 
 function renderControls() {
+  $("open-history").disabled = busy;
+  $("back-to-current").disabled = busy;
+  for (const button of $("history-list").querySelectorAll("button"))
+    button.disabled = busy;
   $("acknowledge-consumption-alert").disabled = busy;
   const session = state.session;
   const recording = Boolean(session?.recording);
@@ -202,7 +214,8 @@ function renderControls() {
   $("start").textContent = session ? "Iniciar nova sessão" : "Iniciar captura";
   $("stop").disabled = busy;
   $("reload").disabled = busy || !recording || session.tabId === null;
-  $("export").disabled = !session?.requests.length;
+  $("export").disabled = !displayedState().session?.requests.length;
+  $("clear").hidden = Boolean(selectedHistory);
   $("clear").disabled = busy || recording || !session;
   $("target").textContent =
     (recording ? session.pageUrl : (targetTab?.url ?? session?.pageUrl)) ??
@@ -223,20 +236,118 @@ function renderControls() {
   $("status").classList.toggle("live", recording);
   $("guidance").textContent = recording
     ? "Troque de aba: a captura acompanha você automaticamente. O histórico permanece nesta sessão; só a aba ativa é observada. Recursos já carregados exigem recarregar."
-    : "Inicie a captura e recarregue a página para observar o carregamento completo. Uma nova sessão substitui os registros anteriores.";
+    : "Inicie a captura e recarregue a página para observar o carregamento completo. As sessões anteriores ficam disponíveis no histórico.";
   $("notice").hidden = !session?.notice;
   $("notice").textContent = session?.notice ?? "";
   $("expand").href =
     `panel.html${session ? `?tabId=${session.tabId}` : targetTab ? `?tabId=${targetTab.id}` : ""}`;
 }
 
+async function requestHistoryEntry(id) {
+  const response = await chrome.runtime.sendMessage({
+    type: "GET_HISTORY_SESSION",
+    id,
+  });
+  if (!response?.ok)
+    throw new Error(
+      response?.error ?? "Não foi possível abrir a sessão salva.",
+    );
+  return response.data.entry;
+}
+function resetFilters() {
+  $("search").value = "";
+  $("filter").value = "all";
+  $("tab-filter").value = "all";
+  limit = 100;
+}
+function renderHistory() {
+  const list = state.history ?? [];
+  if (
+    selectedHistory &&
+    !list.some((entry) => entry.id === selectedHistory.id)
+  ) {
+    selectedHistory = null;
+    resetFilters();
+  }
+  $("history-error").hidden = !state.historyError;
+  $("history-error").textContent = state.historyError ?? "";
+  $("selected-history").hidden = !selectedHistory;
+  $("selected-history-title").textContent = selectedHistory
+    ? `Sessão de ${dateTime(selectedHistory.session.startedAt)}`
+    : "";
+  $("selected-history-info").textContent = selectedHistory
+    ? `${selectedHistory.recovered ? "Interrompida · último ponto salvo" : "Encerrada"} em ${dateTime(selectedHistory.session.stoppedAt ?? selectedHistory.savedAt)}. ${state.session?.recording ? "A captura atual continua ativa." : "Consulta ao histórico salvo."}`
+    : "";
+  const signature = JSON.stringify(list);
+  if (signature === historySignature) return;
+  historySignature = signature;
+  $("history-empty").hidden = list.length > 0;
+  $("history-list").replaceChildren(
+    ...list.map((entry) => {
+      const item = text("li", "", "history-item");
+      item.dataset.sessionId = entry.id;
+      const meta = text("div", "", "history-meta");
+      meta.append(
+        text("strong", dateTime(entry.startedAt)),
+        text(
+          "span",
+          `${formatBytes(entry.transferredBytes)} · ${entry.requests} requisições · ${entry.tabs} abas`,
+        ),
+        text(
+          "span",
+          entry.recovered
+            ? "Interrompida · último ponto salvo"
+            : "Captura encerrada",
+        ),
+      );
+      const buttons = text("div", "", "history-actions");
+      const open = text("button", "Ver detalhes");
+      open.type = "button";
+      open.disabled = busy;
+      open.setAttribute(
+        "aria-label",
+        `Ver sessão de ${dateTime(entry.startedAt)}`,
+      );
+      open.addEventListener("click", () =>
+        action(async () => {
+          selectedHistory = await requestHistoryEntry(entry.id);
+          resetFilters();
+          $("history-dialog").close();
+          render();
+          $("selected-history").scrollIntoView({ block: "start" });
+        }),
+      );
+      const remove = text("button", "Excluir sessão");
+      remove.type = "button";
+      remove.disabled = busy;
+      remove.setAttribute(
+        "aria-label",
+        `Excluir sessão de ${dateTime(entry.startedAt)}`,
+      );
+      remove.addEventListener("click", () =>
+        action(async () => {
+          await send("DELETE_HISTORY_SESSION", { id: entry.id });
+          if (selectedHistory?.id === entry.id) {
+            selectedHistory = null;
+            resetFilters();
+            render();
+          }
+        }),
+      );
+      buttons.append(open, remove);
+      item.append(meta, buttons);
+      return item;
+    }),
+  );
+}
 function render() {
   budgetSettings = state.budgetSettings ?? null;
   renderBudgetSettings();
   renderAdaptation();
   renderConsumptionAlert();
+  renderHistory();
   renderControls();
-  const { session, metrics: m } = state;
+  const { session, metrics: m } = displayedState();
   $("bytes").textContent = formatBytes(m.transferredBytes ?? 0);
   $("count").textContent = (m.requests ?? 0).toLocaleString("pt-BR");
   $("rate").textContent = `${formatBytes(m.bytesPerMinute ?? 0)}/min`;
@@ -295,8 +406,8 @@ function render() {
 }
 
 function renderTabRanking() {
-  const ranking = state.metrics.byTab ?? [];
-  const total = state.metrics.transferredBytes ?? 0;
+  const ranking = displayedState().metrics.byTab ?? [];
+  const total = displayedState().metrics.transferredBytes ?? 0;
   const maximum = ranking[0]?.bytes ?? 0;
   const tied =
     maximum > 0 && ranking.filter((tab) => tab.bytes === maximum).length > 1;
@@ -385,10 +496,11 @@ function renderTabRanking() {
 }
 
 function renderRows() {
+  const displayedSession = displayedState().session;
   const query = $("search").value.toLowerCase();
   const kind = $("filter").value;
   const tab = $("tab-filter").value;
-  const rows = (state.session?.requests ?? []).filter(
+  const rows = (displayedSession?.requests ?? []).filter(
     (row) =>
       (tab === "all" || String(row.tabId) === tab) &&
       (kind === "all" || row.type === kind) &&
@@ -405,10 +517,10 @@ function renderRows() {
   $("visible-count").textContent = rows.length;
   $("more").hidden = rows.length <= limit;
   $("empty").hidden = rows.length > 0;
-  $("empty").querySelector("h3").textContent = state.session?.requests.length
+  $("empty").querySelector("h3").textContent = displayedSession?.requests.length
     ? "Nenhum recurso para este filtro."
     : "Sua próxima navegação, em detalhes.";
-  $("empty").querySelector("p").textContent = state.session?.requests.length
+  $("empty").querySelector("p").textContent = displayedSession?.requests.length
     ? "Experimente outro tipo ou termo de busca."
     : "Inicie a captura e recarregue a página para acompanhar as requisições.";
   $("rows").replaceChildren(
@@ -426,7 +538,7 @@ function renderRows() {
         text("span", name, "resource-name"),
         text(
           "span",
-          `${row.method} · ${row.domain} · Aba ${Math.max(0, state.session.tabs?.findIndex((tab) => tab.id === row.tabId) ?? 0) + 1}`,
+          `${row.method} · ${row.domain} · Aba ${Math.max(0, displayedSession.tabs?.findIndex((tab) => tab.id === row.tabId) ?? 0) + 1}`,
           "resource-domain",
         ),
       );
@@ -495,6 +607,21 @@ $("acknowledge-consumption-alert").addEventListener("click", () => {
       }),
     );
 });
+$("open-history").addEventListener("click", () => {
+  renderHistory();
+  $("history-dialog-error").textContent = state.historyError ?? "";
+  $("history-dialog-error").hidden = !state.historyError;
+  $("history-dialog").showModal();
+});
+$("close-history").addEventListener("click", () => $("history-dialog").close());
+$("history-dialog").addEventListener("click", (event) => {
+  if (event.target === $("history-dialog")) $("history-dialog").close();
+});
+$("back-to-current").addEventListener("click", () => {
+  selectedHistory = null;
+  resetFilters();
+  render();
+});
 $("open-settings").addEventListener("click", openSettings);
 $("close-settings").addEventListener("click", closeSettings);
 $("cancel-settings").addEventListener("click", closeSettings);
@@ -543,16 +670,19 @@ $("more").addEventListener("click", () => {
   renderRows();
 });
 $("export").addEventListener("click", () => {
-  const { session, metrics } = state;
+  const { session, metrics } = displayedState();
   if (!session) return;
   const data = {
     exportedAt: new Date().toISOString(),
     note: "Estimativa CDP de respostas HTTP(S); não representa todo o tráfego do dispositivo. URLs sem query/fragmento/credenciais. Caminhos podem conter dados pessoais.",
     session,
     metrics,
-    budgetSettings,
-    adaptation: state.adaptation,
-    consumptionAlert: state.consumptionAlert,
+    budgetSettings: selectedHistory
+      ? selectedHistory.budgetSettings
+      : budgetSettings,
+    adaptation: selectedHistory ? selectedHistory.adaptation : state.adaptation,
+    historical: Boolean(selectedHistory),
+    consumptionAlert: selectedHistory ? undefined : state.consumptionAlert,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -576,7 +706,7 @@ function connect() {
   });
 }
 const rateTimer = setInterval(() => {
-  if (!state.session?.recording) return;
+  if (selectedHistory || !state.session?.recording) return;
   const elapsedMinutes = Math.max(
     1 / 60,
     (Date.now() - state.session.startedAt) / 60000,

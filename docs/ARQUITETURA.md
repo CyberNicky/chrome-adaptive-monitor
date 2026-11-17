@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.9.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas persistentes de consumo estão disponíveis; a consulta ao histórico de sessões anteriores segue pendente.
+A entrega 0.10.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além do cache da captura ativa e do histórico local de sessões. Alertas persistentes e consulta ao histórico de sessões anteriores estão disponíveis.
 
 ## Fluxo implementado
 
@@ -24,16 +24,16 @@ flowchart LR
 
 As regras atuam sobre novas requisições. Após cada lote de observações, o controlador reavalia os limites, atualiza o plano e publica o modo confirmado pela API. Isso cria um feedback básico de consumo, sem ainda analisar ritmo em relação ao tempo restante da franquia.
 
-| Componente da figura    | Arquivo                                         | Responsabilidade atual                                                          |
-| ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| Sensor                  | `extension/sensors/chrome-network-sensor.js`    | Início explícito da sessão; acompanha a aba ativa e seus contextos filhos       |
-| Coletor                 | `extension/monitoring/request-collector.js`     | Normaliza eventos, separa requisições por contexto e preserva redirecionamentos |
-| Classificador           | `extension/monitoring/resource-classifier.js`   | Usa tipo do Chrome e MIME; diferencia áudio/vídeo quando possível               |
-| Estimador               | `extension/monitoring/consumption-estimator.js` | Interpreta tamanho conhecido, parcial, cache e indisponibilidade                |
-| Agregador               | `extension/monitoring/metrics-aggregator.js`    | Consolida bytes e contadores por recurso/domínio e média por minuto             |
-| Conhecimento            | `extension/knowledge/`                          | Guarda a sessão temporária e a configuração persistente do orçamento            |
-| Controlador da extensão | `extension/background.js`                       | Coordena sensor, sessão, mensagens e o ciclo de adaptação                       |
-| Interface               | `extension/ui/`                                 | Apresenta dados, controla captura e exporta evidências                          |
+| Componente da figura    | Arquivo                                         | Responsabilidade atual                                                           |
+| ----------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------- |
+| Sensor                  | `extension/sensors/chrome-network-sensor.js`    | Início explícito da sessão; acompanha a aba ativa e seus contextos filhos        |
+| Coletor                 | `extension/monitoring/request-collector.js`     | Normaliza eventos, separa requisições por contexto e preserva redirecionamentos  |
+| Classificador           | `extension/monitoring/resource-classifier.js`   | Usa tipo do Chrome e MIME; diferencia áudio/vídeo quando possível                |
+| Estimador               | `extension/monitoring/consumption-estimator.js` | Interpreta tamanho conhecido, parcial, cache e indisponibilidade                 |
+| Agregador               | `extension/monitoring/metrics-aggregator.js`    | Consolida bytes e contadores por recurso/domínio e média por minuto              |
+| Conhecimento            | `extension/knowledge/`                          | Guarda cache da captura, histórico local e configuração persistente do orçamento |
+| Controlador da extensão | `extension/background.js`                       | Coordena sensor, sessão, mensagens e o ciclo de adaptação                        |
+| Interface               | `extension/ui/`                                 | Apresenta dados, controla captura e exporta evidências                           |
 
 O controlador faz a ligação entre componentes. O coletor chama o classificador ao receber metadados; o agregador consulta o estimador ao consolidar os registros. O fluxo do diagrama é lógico, sem criar processos ou microserviços para cada caixa. Os módulos são JavaScript com ES Modules e não exigem bundler, facilitando carregar o protótipo e depurá-lo.
 
@@ -45,7 +45,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 **Contextos filhos.** A instrumentação usa sessões CDP planas, disponíveis via `chrome.debugger` a partir do Chrome 125. Novos iframes/workers dedicados são instrumentados antes de continuar sua execução, reduzindo a perda de eventos iniciais. Isso pode introduzir atraso de instrumentação. IDs são isolados por contexto; transições de alvo com ID inequívoco podem ser correlacionadas. Contextos não instrumentados podem deixar cobertura parcial.
 
-**Conhecimento limitado.** O histórico é apenas da sessão atual e desaparece ao reiniciar o Chrome. Plano, franquia e ativação automática persistem localmente. As metas são parâmetros internos da política, não preferências do usuário. Desde a versão 0.6.0, o consumo dos modos é o acumulado persistente do ciclo da franquia. Histórico de sessões, prioridades e exceções permanecem futuros. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
+**Conhecimento persistente.** Desde 0.10.0, o histórico das sessões recentes é salvo localmente e permanece ao reiniciar o Chrome, com limites de retenção. A captura ativa mantém um cache separado na memória da sessão do navegador. Plano, franquia e ativação automática persistem localmente. As metas são parâmetros internos da política, não preferências do usuário. Desde a versão 0.6.0, o consumo dos modos é o acumulado persistente do ciclo da franquia. Prioridades e exceções permanecem futuras. O histórico de sessões já está disponível. O armazenamento recebe somente modelos normalizados, sem corpos ou headers das requisições.
 
 **Interface persistente.** O painel usa conexão de mensagens para receber atualizações agrupadas em intervalos de 250 ms, evitando renderizar a cada pacote recebido. A tabela apresenta 100 registros por vez, com opção de mostrar mais; as métricas incluem todos os registros retidos. A captura continua ao fechar o painel, até ser encerrada ou desconectada.
 
@@ -106,7 +106,7 @@ Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar nova
 
 O controlador reconcilia o período, agenda `chrome.alarms`, persiste o acumulado e entrega consumo e calendário à Análise. A renovação recalcula o plano e restaura Normal quando aplicável. Iniciar/limpar captura ou reiniciar o navegador não apaga o acumulado do ciclo. Alterações do plano preservam o valor já observado. O painel distingue consumo da franquia de métricas da captura; persistência com falha é informada ao usuário.
 
-Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. O histórico consultável continua pendente; os alertas foram acrescentados na versão 0.7.0.
+Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. O histórico consultável foi acrescentado na versão 0.10.0; os alertas estão disponíveis desde 0.7.0.
 
 O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova persistência, inicia outra captura sob a mesma franquia e dispara um alarme real com relógio controlado no teste, verificando renovação sem consulta do painel e retirada dos bloqueios. O produto não possui mecanismo de teste para forçar datas ou zerar o consumo. O contador segue limitado às medições retidas e aos períodos efetivamente monitorados; não representa a fatura da operadora.
 
@@ -118,7 +118,7 @@ O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova per
 
 A fila do controlador serializa publicação e confirmação. A mensagem **Entendi** inclui faixa e identificador do ciclo: uma tela antiga não pode confirmar uma faixa superior ou um ciclo novo. A marca de tentativa é gravada antes da chamada nativa, favorecendo não repetir notificações após um reinício. Isso não é uma transação com o sistema operacional: se o processo cair nesse intervalo, o aviso continua no painel, mas o banner nativo pode não ser entregue. Falhas de persistência impedem o envio; falhas da API mantêm o aviso e são informadas no painel.
 
-O teste de navegador usa um documento de imagem da extensão como canal de consulta, sem manter um painel de usuário aberto. Observa chamadas encaminhadas à API real, cruza faixas, confirma o aviso, fecha/reabre o Chrome e verifica o novo ciclo. O teste não afirma visibilidade do banner do sistema operacional em execução headless. A consulta a sessões antigas é o item 4 e permanece fora deste incremento.
+O teste de navegador usa um documento de imagem da extensão como canal de consulta, sem manter um painel de usuário aberto. Observa chamadas encaminhadas à API real, cruza faixas, confirma o aviso, fecha/reabre o Chrome e verifica o novo ciclo. O teste não afirma visibilidade do banner do sistema operacional em execução headless. A consulta a sessões antigas foi acrescentada no item 4, versão 0.10.0.
 
 ## Aviso de consumo na página (0.8.0 / complemento do item 3)
 
@@ -129,3 +129,13 @@ O botão comunica confirmação por `Runtime.addBinding` restrito ao mundo isola
 A transição entre abas remove o aviso anterior antes de desconectar o sensor. Navegação/recarregamento reinstala a apresentação no frame principal, e uma duração renovável de seis segundos remove elementos órfãos se a extensão for desconectada. O encerramento remove cartão e indicador. Desde 0.9.0, a apresentação permanece no Normal, antes dos alertas e após renovar o ciclo, mostrando modo e percentual. As cores seguem o modo aplicado, independentemente da faixa numérica do alerta; desligar a adaptação mantém o monitor verde, mesmo com aviso de consumo alto. Uma falha de apresentação não interrompe o monitoramento e é indicada no painel. Essa ação de comunicação amplia a interface do sistema gerenciador sobre o sistema gerenciado, sem acrescentar política de bloqueio ou permissão de acesso a sites.
 
 Na versão 0.9.0, o controlador renova a apresentação durante toda a captura, inclusive sem alertas, mantendo a duração de limpeza ao desconectar. O estado `normalDismissed` preserva o recolhimento do monitor Normal por ciclo, sem emitir notificações nativas nem suprimir avisos de faixas superiores. Os testes em Chrome verificam os fundos verde/amarelo/vermelho nos três modos, o posicionamento inferior e o monitor verde após a renovação.
+
+## Histórico de sessões (0.10.0 / item 4)
+
+`knowledge/history-store.js` guarda snapshots independentes da captura e de seu contexto de orçamento em um documento versionado em `storage.local`. A identidade estável da sessão usa UUID, com compatibilidade para capturas antigas que só tinham `startedAt`. Cada registro inclui requisições sanitizadas, abas, métricas agregadas, orçamento, adaptação e instante salvo. O histórico retém até 10 sessões (incluindo o checkpoint ativo) e 4 MB, descartando registros antigos inteiros quando necessário. Escritas são confirmadas antes de atualizar o cache do repositório; falhas são apresentadas e impedem descartar a captura anterior para começar outra.
+
+O cache vivo em `session-store.js` continua separado. Na inicialização do worker, uma entrada em andamento com a mesma captura ativa continua sendo atualizada. Se não existir captura ativa correspondente, o histórico transforma o checkpoint em sessão interrompida, marca pendências como interrompidas e congela o término no instante salvo. Essa recuperação não conecta sensores nem injeta bytes antigos no acumulador da franquia. Sessões encerradas são imutáveis: alterações no orçamento atual não mudam seus dados ou seu contexto de exportação.
+
+O controlador publica apenas resumos do histórico. O comando `GET_HISTORY_SESSION` busca detalhes sob demanda, sem substituir a captura viva no backend. A interface mantém uma seleção de consulta separada, compartilhando os componentes de métricas, ranking, filtros, tabela e exportação. O retorno à captura atual não exige reconectar o sensor. A exclusão altera somente o repositório de histórico, com proteção contra excluir a captura ainda ativa, e mantém o contador da franquia.
+
+Os testes de unidade cobrem recuperação, imutabilidade, retenção por quantidade/bytes e falhas. O teste `history-browser.js` consulta a primeira sessão enquanto a segunda recebe recursos, exporta o snapshot original após editar o plano atual, exclui o registro e fecha o Chrome sem encerrar a captura. Ao reabrir, verifica os dados recuperados e a ausência de dupla contagem da franquia. Isso implementa o histórico de consumo por sessão da base de Conhecimento, sem implicar que prioridades, exceções, avaliação do ritmo por ciclo ou toda a arquitetura MAPE-K estejam concluídos.

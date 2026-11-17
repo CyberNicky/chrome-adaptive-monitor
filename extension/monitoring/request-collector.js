@@ -5,6 +5,7 @@ export const MAX_REQUESTS = 3000;
 
 export function createSession(tab, now = Date.now()) {
   return {
+    id: crypto.randomUUID(),
     schemaVersion: 2,
     tabId: tab.id,
     pageUrl: sanitizeUrl(tab.url),
