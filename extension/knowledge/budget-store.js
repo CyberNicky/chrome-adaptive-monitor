@@ -34,13 +34,14 @@ export function createBudgetSettings(value, now = Date.now()) {
   )
     throw new Error("A duração deve ser um número inteiro entre 1 e 366 dias.");
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     planName,
     dataAmount,
     dataUnit,
     cycleStartDate,
     cycleType,
     cycleDays,
+    notificationsEnabled: value?.notificationsEnabled !== false,
     adaptiveEnabled: value?.adaptiveEnabled !== false,
     updatedAt: now,
   };
@@ -55,7 +56,7 @@ export const budgetStore = {
         { cycleStartDate: localDate(), ...saved },
         saved.updatedAt,
       );
-      if (saved.schemaVersion !== 4)
+      if (saved.schemaVersion !== 5)
         await chrome.storage.local.set({ [KEY]: normalized });
       return normalized;
     } catch {

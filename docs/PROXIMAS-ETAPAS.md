@@ -1,8 +1,8 @@
 # Continuação do desenvolvimento
 
-A versão 0.6.0 entrega os itens 1 e 2: modos por metas internas e período/renovação da franquia com acumulado persistente. Aguardar os testes do usuário antes de avançar ao item 3.
+A versão 0.7.0 entrega os itens 1, 2 e 3: modos por metas internas, período/renovação da franquia e alertas de consumo persistentes. Aguardar os testes do usuário antes de avançar ao item 4.
 
-Próximos incrementos, um por vez: **item 3**, alertas de consumo (o acumulado persistente já sustenta o ciclo); **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-2.md](TESTE-ETAPA-2.md).
+Próximo incremento: **item 4**, consulta às sessões anteriores. O roteiro desta entrega está em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md).
 
 ## 1. Consolidar o monitoramento
 

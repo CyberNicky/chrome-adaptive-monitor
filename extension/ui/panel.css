@@ -906,3 +906,36 @@ tr:last-child td {
 .settings-help summary {
   cursor: pointer;
 }
+
+.consumption-alert {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 20px;
+  margin-top: 14px;
+  border: 1px solid #ead8a1;
+  border-radius: 9px;
+  background: #fff8e5;
+  color: #6e4c0c;
+  font-size: 12px;
+}
+.consumption-alert[data-severity="critical"] {
+  border-color: #efcbc2;
+  background: #fff1ed;
+  color: #8e3026;
+}
+.consumption-alert p {
+  margin: 6px 0 0;
+  line-height: 1.6;
+}
+.consumption-alert button {
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .consumption-alert {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+  }
+}

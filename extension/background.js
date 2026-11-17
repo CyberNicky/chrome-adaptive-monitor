@@ -14,6 +14,11 @@ import {
 } from "./sensors/chrome-network-sensor.js";
 
 import { reconcileUsage, usageStore } from "./knowledge/budget-usage.js";
+import { alertStore } from "./knowledge/alert-store.js";
+import {
+  createConsumptionAlerts,
+  CONSUMPTION_NOTIFICATION_ID,
+} from "./alerts/consumption-alerts.js";
 import { budgetStore } from "./knowledge/budget-store.js";
 import { analyzeBudget } from "./analysis/budget-analyzer.js";
 import { planAdaptation } from "./planning/adaptation-planner.js";
@@ -25,6 +30,11 @@ const contentEffector = createContentEffector({
     chrome.debugger.sendCommand(target, method, params),
   tabs: chrome.tabs,
   runtimeId: chrome.runtime.id,
+});
+const consumptionAlerts = createConsumptionAlerts({
+  store: alertStore,
+  notifications: chrome.notifications,
+  iconUrl: chrome.runtime.getURL("icons/icon128.png"),
 });
 const CYCLE_ALARM = "budget-cycle-renewal";
 let scheduledBoundary = null;
@@ -41,6 +51,7 @@ const ready = sessionStore.load().then(async (saved) => {
   session = saved;
   budgetSettings = await budgetStore.load();
   budgetUsage = await usageStore.load();
+  await consumptionAlerts.load();
   updateUsage();
   if (session && session.schemaVersion !== 2) {
     session.tabs = [{ id: session.tabId, url: session.pageUrl }];
@@ -138,6 +149,7 @@ function snapshot() {
       metrics: aggregateMetrics(null),
       budgetSettings,
       usageError,
+      consumptionAlert: consumptionAlerts.snapshot,
       adaptation,
     };
   const { active, ...publicSession } = session;
@@ -146,6 +158,7 @@ function snapshot() {
     metrics: aggregateMetrics(session),
     budgetSettings,
     usageError,
+    consumptionAlert: consumptionAlerts.snapshot,
     adaptation,
   };
 }
@@ -168,6 +181,16 @@ async function publish() {
       session.notice =
         "Não foi possível salvar a sessão. Exporte os registros disponíveis.";
   }
+  await consumptionAlerts.synchronize(
+    analyzeBudget(
+      budgetSettings,
+      budgetUsage?.consumedBytes ?? 0,
+      budgetUsage?.cycle,
+    ),
+    budgetUsage,
+    budgetSettings,
+    !usageError,
+  );
   const value = snapshot();
   for (const port of ports) {
     try {
@@ -277,6 +300,11 @@ chrome.runtime.onConnect.addListener((port) => {
 async function handle(message) {
   switch (message.type) {
     case "GET_STATE":
+      await publish();
+      return snapshot();
+    case "ACKNOWLEDGE_CONSUMPTION_ALERT":
+      await publish();
+      await consumptionAlerts.acknowledge(message.level, message.token);
       await publish();
       return snapshot();
     case "SAVE_BUDGET":
@@ -458,4 +486,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     scheduledBoundary = null;
     automatic(publish);
   }
+});
+
+chrome.notifications.onClicked.addListener((id) => {
+  if (id !== CONSUMPTION_NOTIFICATION_ID) return;
+  void (async () => {
+    const url = chrome.runtime.getURL("ui/panel.html");
+    const existing = (await chrome.tabs.query({})).find((tab) =>
+      tab.url?.startsWith(url),
+    );
+    if (existing) {
+      await chrome.tabs.update(existing.id, { active: true });
+      await chrome.windows.update(existing.windowId, { focused: true });
+    } else await chrome.tabs.create({ url });
+  })().catch(() => {});
 });

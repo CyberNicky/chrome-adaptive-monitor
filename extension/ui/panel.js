@@ -95,6 +95,18 @@ function renderAdaptation() {
   $("adaptation-error").textContent = a?.error ?? "";
 }
 
+function renderConsumptionAlert() {
+  const alert = state.consumptionAlert;
+  $("consumption-alert").hidden = !alert?.visible;
+  $("consumption-alert").dataset.severity =
+    alert?.current?.severity ?? "warning";
+  $("consumption-alert-title").textContent = alert?.current?.title ?? "";
+  $("consumption-alert-message").textContent = alert?.current?.message ?? "";
+  $("acknowledge-consumption-alert").disabled = busy;
+  $("notification-error").hidden = !alert?.error;
+  $("notification-error").textContent = alert?.error ?? "";
+}
+
 function describeCycle(cycle) {
   const date = (value) => value.split("-").reverse().join("/");
   const days = (value) => `${value} ${value === 1 ? "dia" : "dias"}`;
@@ -127,6 +139,8 @@ function fillSettingsForm() {
   $("cycle-type").value = budgetSettings?.cycleType ?? "monthly";
   $("cycle-days").value = budgetSettings?.cycleDays ?? 30;
   previewCycle();
+  $("notifications-enabled").checked =
+    budgetSettings?.notificationsEnabled ?? true;
   $("adaptive-enabled").checked = budgetSettings?.adaptiveEnabled ?? true;
   $("settings-error").hidden = true;
 }
@@ -177,6 +191,7 @@ async function selectTarget() {
 }
 
 function renderControls() {
+  $("acknowledge-consumption-alert").disabled = busy;
   const session = state.session;
   const recording = Boolean(session?.recording);
   $("start").hidden = recording;
@@ -217,6 +232,7 @@ function render() {
   budgetSettings = state.budgetSettings ?? null;
   renderBudgetSettings();
   renderAdaptation();
+  renderConsumptionAlert();
   renderControls();
   const { session, metrics: m } = state;
   $("bytes").textContent = formatBytes(m.transferredBytes ?? 0);
@@ -467,6 +483,16 @@ $("start").addEventListener("click", () =>
 $("stop").addEventListener("click", () => action(() => send("STOP")));
 $("reload").addEventListener("click", () => action(() => send("RELOAD")));
 $("clear").addEventListener("click", () => action(() => send("CLEAR")));
+$("acknowledge-consumption-alert").addEventListener("click", () => {
+  const alert = state.consumptionAlert;
+  if (alert?.current)
+    action(() =>
+      send("ACKNOWLEDGE_CONSUMPTION_ALERT", {
+        level: alert.current.level,
+        token: alert.token,
+      }),
+    );
+});
 $("open-settings").addEventListener("click", openSettings);
 $("close-settings").addEventListener("click", closeSettings);
 $("cancel-settings").addEventListener("click", closeSettings);
@@ -489,6 +515,7 @@ $("settings-form").addEventListener("submit", async (event) => {
         cycleStartDate: form.get("cycleStartDate"),
         cycleType: form.get("cycleType"),
         cycleDays: form.get("cycleDays"),
+        notificationsEnabled: $("notifications-enabled").checked,
         adaptiveEnabled: $("adaptive-enabled").checked,
       },
     });
@@ -523,6 +550,7 @@ $("export").addEventListener("click", () => {
     metrics,
     budgetSettings,
     adaptation: state.adaptation,
+    consumptionAlert: state.consumptionAlert,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",

@@ -73,6 +73,10 @@ try {
   await panel
     .getByRole("button", { name: "Salvar configuração", exact: true })
     .click();
+  await until(
+    async () => (await panel.locator("#plan-total").innerText()) === "25 GB",
+    "configuração salva e publicada no painel",
+  );
   assert.equal(
     await panel.locator("#plan-total").innerText(),
     "25 GB",

@@ -28,4 +28,4 @@ Não é necessário mudar o relógio do computador. Para validar agora, execute 
 
 O acumulado é uma estimativa apenas do que a captura observou, com o mesmo limite de 3.000 registros por captura. Ao atingir esse limite, inicie outra captura para continuar a contabilização do ciclo. Não consulta a operadora, não recupera tráfego anterior à instalação e não conta abas inativas, outros aplicativos ou uploads. Remover a extensão ou apagar seus dados locais elimina a configuração e esse acumulado. São usados a data e o horário do dispositivo.
 
-A persistência do total é uma dependência do item 2. Alertas de consumo (item 3) e histórico consultável de sessões/ciclos anteriores (item 4) ainda não foram implementados.
+A persistência do total é uma dependência do item 2. Alertas de consumo (item 3) estão disponíveis desde 0.7.0: [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico consultável de sessões/ciclos anteriores (item 4) ainda não foi implementado.

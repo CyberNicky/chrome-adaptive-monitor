@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.6.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas e consulta ao histórico de sessões anteriores seguem pendentes.
+A entrega 0.7.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas do sistema; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além dos registros temporários da captura. Alertas persistentes de consumo estão disponíveis; a consulta ao histórico de sessões anteriores segue pendente.
 
 ## Fluxo implementado
 
@@ -53,7 +53,7 @@ O controlador faz a ligação entre componentes. O coletor chama o classificador
 
 ![Figura fornecida pela equipe](arquitetura-referencia.png)
 
-Análise, Planejamento, Execução e Efetor já possuem implementações básicas na etapa 1. Avaliação do ritmo por período, exceções, alertas e histórico permanente continuam na evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md).
+Análise, Planejamento, Execução e Efetor já possuem implementações básicas na etapa 1. Avaliação do ritmo por período, exceções e histórico permanente continuam na evolução documentada em [PROXIMAS-ETAPAS.md](PROXIMAS-ETAPAS.md).
 
 ## Troca automática de abas (0.2.0)
 
@@ -96,7 +96,7 @@ Há uma ampliação concreta do ponto de atuação: além da filtragem das requi
 
 Ao voltar a Normal, desativar, encerrar ou liberar uma aba, a extensão restaura suas alterações sem iniciar áudio automaticamente nem desfazer um silenciamento prévio do usuário. O controle da página tem uma duração renovada enquanto a captura está ativa; se a extensão for desconectada/recarregada, ele expira e restaura a página. O reinício também recupera silenciamento que tenha sido deixado pela própria extensão.
 
-Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. O calendário foi acrescentado na versão 0.6.0; alertas e histórico de sessões seguem como próximos incrementos.
+Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar novamente pelo buffer após a adaptação, verificam mídia embutida em iframe de outra origem, renovação do controle e retorno ao Normal por ação do usuário. O calendário foi acrescentado na versão 0.6.0 e os alertas na 0.7.0; o histórico de sessões segue como próximo incremento.
 
 ## Calendário e consumo da franquia (0.6.0 / item 2)
 
@@ -106,6 +106,16 @@ Os testes reproduzem áudio em Normal antes de atingir a meta, tentam tocar nova
 
 O controlador reconcilia o período, agenda `chrome.alarms`, persiste o acumulado e entrega consumo e calendário à Análise. A renovação recalcula o plano e restaura Normal quando aplicável. Iniciar/limpar captura ou reiniciar o navegador não apaga o acumulado do ciclo. Alterações do plano preservam o valor já observado. O painel distingue consumo da franquia de métricas da captura; persistência com falha é informada ao usuário.
 
-Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. Alertas e histórico consultável continuam fora desta entrega.
+Essa entrega cobre parte de **Conhecimento** (orçamento e consumo) e do **verificador do orçamento**, mantendo a seleção de modo e os efetores anteriores. O período já está disponível para uma futura avaliação de ritmo diário, mas a política continua baseada em 70%/90% do total, sem regras novas de ritmo. O histórico consultável continua pendente; os alertas foram acrescentados na versão 0.7.0.
 
 O teste real fecha/reabre o Chrome com o mesmo perfil temporário e comprova persistência, inicia outra captura sob a mesma franquia e dispara um alarme real com relógio controlado no teste, verificando renovação sem consulta do painel e retirada dos bloqueios. O produto não possui mecanismo de teste para forçar datas ou zerar o consumo. O contador segue limitado às medições retidas e aos períodos efetivamente monitorados; não representa a fatura da operadora.
+
+## Alertas de consumo (0.7.0 / item 3)
+
+`alerts/consumption-alerts.js` interpreta a análise de orçamento e gera avisos em 70%/90% (metas compartilhadas com `adaptation-policy.js`) e 100%. Esse componente observa o orçamento independentemente da ativação dos bloqueios, sem introduzir nova política de adaptação. A interface apresenta o estado atual e o controlador emite a notificação nativa, como ações de comunicação ao usuário.
+
+`knowledge/alert-store.js` persiste marcos emitidos e confirmados, o identificador do ciclo e eventual falha de notificação. O contador e os checkpoints do item 2 continuam separados e preservados. A renovação natural, identificada por `lastRenewedAt`, reinicia os marcos; editar o calendário com consumo preservado não simula uma renovação nem repete avisos. A configuração migra sem perder franquia/datas e acrescenta `notificationsEnabled`.
+
+A fila do controlador serializa publicação e confirmação. A mensagem **Entendi** inclui faixa e identificador do ciclo: uma tela antiga não pode confirmar uma faixa superior ou um ciclo novo. A marca de tentativa é gravada antes da chamada nativa, favorecendo não repetir notificações após um reinício. Isso não é uma transação com o sistema operacional: se o processo cair nesse intervalo, o aviso continua no painel, mas o banner nativo pode não ser entregue. Falhas de persistência impedem o envio; falhas da API mantêm o aviso e são informadas no painel.
+
+O teste de navegador usa um documento de imagem da extensão como canal de consulta, sem manter um painel de usuário aberto. Observa chamadas encaminhadas à API real, cruza faixas, confirma o aviso, fecha/reabre o Chrome e verifica o novo ciclo. O teste não afirma visibilidade do banner do sistema operacional em execução headless. A consulta a sessões antigas é o item 4 e permanece fora deste incremento.

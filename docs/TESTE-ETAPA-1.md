@@ -1,6 +1,6 @@
 # Etapa 1 — teste incremental dos modos (atualizado para 0.6.0)
 
-Este roteiro verifica os modos do item 1. O calendário e acumulado do item 2 já estão disponíveis: veja [TESTE-ETAPA-2.md](TESTE-ETAPA-2.md). Alertas (item 3) e histórico anterior (item 4) seguem pendentes.
+Este roteiro verifica os modos do item 1. O calendário e acumulado do item 2 já estão disponíveis: veja [TESTE-ETAPA-2.md](TESTE-ETAPA-2.md). Os alertas do item 3 estão disponíveis em [TESTE-ETAPA-3.md](TESTE-ETAPA-3.md). O histórico anterior (item 4) segue pendente.
 
 1. Recarregue o cartão do Navega em `chrome://extensions`. Se o Chrome solicitar a nova permissão de bloqueio, conceda-a para testar. Feche/reabra o painel.
 2. Execute `npm run demo` na raiz do projeto e abra `http://127.0.0.1:4173`.

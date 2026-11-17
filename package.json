@@ -1,13 +1,13 @@
 {
   "name": "chrome-adaptive-monitor",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Protótipo de monitoramento de recursos web baseado na arquitetura MAPE-K.",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "demo": "node demo/server.js",
-    "test:e2e": "node tests/browser-smoke.js && node tests/adaptation-browser.js && node tests/cycle-browser.js",
+    "test:e2e": "node tests/browser-smoke.js && node tests/adaptation-browser.js && node tests/cycle-browser.js && node tests/alerts-browser.js",
     "check": "node scripts/check.js",
     "package": "node scripts/package.js"
   },

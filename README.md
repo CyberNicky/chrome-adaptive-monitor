@@ -1,6 +1,6 @@
 # Navega • Monitor de recursos
 
-Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.6.0 acrescenta o item 2: período da franquia, renovação automática e consumo acumulado por ciclo. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. Alertas e consulta ao histórico de sessões anteriores ficam para as próximas entregas, uma de cada vez.
+Primeira implementação da **Extensão Autoadaptativa para Gestão de Orçamento de Dados na Navegação Web com MAPE-K**, da disciplina de Sistemas Adaptativos. A versão 0.7.0 acrescenta o item 3: alertas de consumo em 70%, 90% e 100%, com aviso no painel, notificações do Chrome e confirmação persistente. O período da franquia, a renovação automática e o consumo acumulado por ciclo continuam disponíveis. Os modos Normal, Econômico e Restritivo usam metas internas sobre esse acumulado. A consulta ao histórico de sessões anteriores fica para o próximo incremento.
 
 Abra uma página, inicie a captura uma vez e alterne entre as abas: o monitoramento acompanha automaticamente a aba ativa. Veja as requisições HTTP(S), seus tipos, status, duração e bytes recebidos informados pelo Chrome. O painel mostra totais, distribuição por recurso, ritmo médio e falhas. É possível buscar, filtrar por tipo e aba de origem, ordenar e exportar a sessão em JSON. Os totais abrangem todas as abas visitadas durante a sessão.
 
@@ -64,7 +64,7 @@ São unidades decimais: **1 kB = 1.000 B; 1 MB = 1.000.000 B**. O total não equ
 - Sem coleta de corpos das respostas, cookies ou cabeçalhos de autenticação. URLs são armazenadas sem query string, fragmento ou credenciais. Caminhos ainda podem conter informações pessoais; revise o JSON antes de compartilhar.
 - Sem servidor de telemetria. O servidor da demo atende apenas no loopback `127.0.0.1`.
 - Páginas internas e protegidas do Chrome não podem ser monitoradas. Iframes e workers instrumentados são observados, mas há limites de cobertura em transições de contexto, service workers e conexões de longa duração.
-- Permissões: `debugger` observa a rede da aba selecionada; `tabs` identifica o alvo e detecta mudanças de aba; `sidePanel` apresenta o painel; `storage` mantém a sessão, a configuração e o contador do ciclo; `alarms` agenda a renovação; `declarativeNetRequest` bloqueia novos recursos conforme o modo. A permissão de depuração é ampla; o código usa a observação de rede e o controle de mídia em mundo isolado descritos acima.
+- Permissões: `debugger` observa a rede da aba selecionada; `tabs` identifica o alvo e detecta mudanças de aba; `sidePanel` apresenta o painel; `storage` mantém a sessão, a configuração, o contador do ciclo e as confirmações dos alertas; `notifications` exibe avisos de consumo no computador; `alarms` agenda a renovação; `declarativeNetRequest` bloqueia novos recursos conforme o modo. A permissão de depuração é ampla; o código usa a observação de rede e o controle de mídia em mundo isolado descritos acima.
 
 ## Desenvolvimento e verificação
 
@@ -90,7 +90,7 @@ Implementação baseada na documentação oficial de [chrome.debugger](https://d
 
 ## Atualizar uma instalação existente
 
-Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.6.0** mantém o monitoramento, ranking e modos e acrescenta o calendário da franquia. Foi adicionada a permissão `alarms` para conferir a renovação com o painel fechado. Configurações antigas recebem, inicialmente, um ciclo mensal a partir de hoje; ajuste para a data real do plano. Confira o [roteiro do item 2](docs/TESTE-ETAPA-2.md).
+Em `chrome://extensions`, clique em **Recarregar** no cartão do Navega e reabra o painel. A versão **0.7.0** acrescenta a permissão `notifications` para avisar sobre consumo com o painel fechado. A franquia e seu ciclo são preservados na atualização. Confira o [roteiro do item 3](docs/TESTE-ETAPA-3.md).
 
 ## Comparar o consumo das abas
 
@@ -114,7 +114,7 @@ A implementação usa tipos `media`/`image` e, para Fetch/XHR, extensões de arq
 
 O painel anuncia o modo depois de aplicar as regras e o controle de conteúdo; falhas são sinalizadas. Essa confirmação da API é diferente de comprovar o bloqueio de todo conteúdo de um site; os testes da demo verificam ambos os pontos. Atualizações são agrupadas (250 ms), portanto requisições já iniciadas antes da aplicação do novo modo podem terminar normalmente.
 
-**Ainda pendentes, para teste incremental:** item 3: alertas de consumo; item 4: consulta de sessões anteriores. A persistência do total do ciclo foi implementada como base necessária do item 2. Iniciar outra captura, limpar a tabela ou reiniciar o navegador preserva esse total.
+**Ainda pendente, para teste incremental:** item 4: consulta de sessões anteriores. A persistência do total do ciclo foi implementada como base necessária do item 2. Iniciar outra captura, limpar a tabela ou reiniciar o navegador preserva esse total.
 
 `npm run test:e2e` executa o monitoramento e depois os testes reais dos três modos, com verificação de que recursos bloqueados não chegaram ao servidor, preservação de texto/CSS/JS, escopo por aba e restauração do modo Normal. Evidências em `artifacts/modo-economico.png`, `artifacts/modo-restritivo.png` e `artifacts/adaptation-verification.json`.
 
@@ -136,6 +136,18 @@ A próxima renovação ocorre à meia-noite local, na data exibida. O acumulado 
 
 O controlador agenda uma conferência com [chrome.alarms](https://developer.chrome.com/docs/extensions/reference/api/alarms) e também confere o calendário ao iniciar, abrir o painel e processar medições. Se o computador estiver desligado ou suspenso, a renovação será processada ao retomar; não depende de manter o painel aberto. O total e os checkpoints de bytes são persistidos juntos em [storage.local](https://developer.chrome.com/docs/extensions/reference/api/storage). O total final de uma requisição substitui o parcial, sem somá-lo outra vez; requisições que atravessam a renovação levam apenas os novos bytes ao ciclo novo.
 
-Não há migração de tráfego que nunca foi observado. Ao atualizar, somente registros disponíveis da captura e pertencentes ao ciclo atual podem inicializar a estimativa. O limite de 3.000 registros por captura continua valendo também para a cobertura do acumulado: ao atingi-lo, exporte e inicie outra captura, preservando o total do ciclo. Ainda não há alertas de consumo nem arquivo consultável de sessões/ciclos anteriores.
+Não há migração de tráfego que nunca foi observado. Ao atualizar, somente registros disponíveis da captura e pertencentes ao ciclo atual podem inicializar a estimativa. O limite de 3.000 registros por captura continua valendo também para a cobertura do acumulado: ao atingi-lo, exporte e inicie outra captura, preservando o total do ciclo. Os alertas foram acrescentados na versão 0.7.0; ainda não há arquivo consultável de sessões/ciclos anteriores.
 
 Teste manual: [TESTE-ETAPA-2.md](docs/TESTE-ETAPA-2.md). O teste automatizado `tests/cycle-browser.js` usa um relógio controlado exclusivamente no processo de teste para verificar a renovação por alarme, além de fechar/reabrir o navegador real e confirmar a persistência. Não há botão de reset ou simulação no produto.
+
+## Etapa 3: alertas de consumo (0.7.0)
+
+O sistema avisa em **70%**, **90%** e **100%** da franquia observada no ciclo. Usa as mesmas metas internas da adaptação e acrescenta o marco de franquia estimada atingida. O aviso apresenta percentual, bytes consumidos, total e saldo estimado. Funciona também com economia automática desativada; a notificação não altera o modo nem bloqueia recursos adicionais.
+
+O painel mantém o aviso até **Entendi**. A confirmação é salva em `storage.local` e não apaga o consumo: reabrir o painel, limpar a captura ou reiniciar o Chrome preserva o total e as confirmações. Uma faixa maior apresenta novo aviso. O ciclo seguinte reinicia os marcos dos alertas junto com a renovação da franquia. Editar nome, quantidade ou datas não reemite faixas já avisadas no mesmo ciclo.
+
+A extensão solicita uma notificação nativa por faixa, mesmo com o painel fechado. Saltar várias faixas de uma vez emite somente o aviso mais alto. O identificador é único, substituindo uma notificação anterior em vez de acumular várias. Clicar nela abre o painel. A engrenagem permite desmarcar **Notificações de consumo no computador**, mantendo os avisos dentro da extensão.
+
+O estado de tentativa é persistido antes da chamada à [API de notificações do Chrome](https://developer.chrome.com/docs/extensions/reference/api/notifications), evitando repetição após reinício. Se o armazenamento falhar, não é enviada notificação nativa. Se a API recusar, o painel informa a falha e mantém o aviso, sem repetir a mesma tentativa a cada atualização. A exibição pelo sistema operacional depende das permissões do Chrome e das configurações de notificações/Foco; confirmação da API não comprova um banner visível no desktop.
+
+Confira [TESTE-ETAPA-3.md](docs/TESTE-ETAPA-3.md). Os testes cobrem fronteiras de bytes, salto de faixas, confirmação, falhas, renovação e reinício. O teste em Chrome chama a API real e valida o aviso com o painel fechado e a persistência. O histórico consultável do item 4 ainda não está implementado.

@@ -50,7 +50,7 @@
         >
           <span aria-hidden="true">⚙</span>
         </button>
-        <span class="version">PROTÓTIPO 0.6</span>
+        <span class="version">PROTÓTIPO 0.7</span>
       </div>
     </header>
     <dialog id="settings-dialog" class="settings-dialog">
@@ -143,6 +143,13 @@
           ><input id="adaptive-enabled" type="checkbox" checked />Ativar
           economia automática durante a captura</label
         >
+        <label class="automatic-toggle"
+          ><input
+            id="notifications-enabled"
+            type="checkbox"
+            checked
+          />Notificações de consumo no computador</label
+        >
         <details class="settings-help">
           <summary>Como funciona a renovação</summary>
           <p class="settings-scope">
@@ -207,7 +214,7 @@
           id="adaptation-progress"
           max="100"
           value="0"
-          aria-label="Orçamento consumido nesta captura"
+          aria-label="Orçamento consumido neste ciclo"
         ></progress>
         <p>
           O modo controla novos downloads e a reprodução já carregada na aba
@@ -215,6 +222,21 @@
           automática.
         </p>
       </section>
+      <section
+        id="consumption-alert"
+        class="consumption-alert"
+        aria-labelledby="consumption-alert-title"
+        hidden
+      >
+        <div role="alert">
+          <strong id="consumption-alert-title"></strong>
+          <p id="consumption-alert-message"></p>
+        </div>
+        <button id="acknowledge-consumption-alert" type="button">
+          Entendi
+        </button>
+      </section>
+      <p id="notification-error" class="message" role="status" hidden></p>
       <p id="usage-error" class="message error" role="alert" hidden></p>
       <p id="adaptation-error" class="message error" role="alert" hidden></p>
       <section class="stats" aria-label="Métricas da sessão">
@@ -369,7 +391,7 @@
         <div><strong>P</strong><span>Planejamento</span></div>
         <span class="connector">→</span>
         <div><strong>E</strong><span>Execução</span></div>
-        <p>Etapa 2 · modos automáticos por consumo do ciclo da franquia</p>
+        <p>Etapa 3 · alertas e consumo do ciclo da franquia</p>
       </footer>
     </main>
     <script type="module" src="panel.js"></script>
