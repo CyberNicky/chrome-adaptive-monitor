@@ -17,3 +17,7 @@ São guardadas até **10 sessões**, incluindo a captura ativa, dentro de **4 MB
 Dados ficam somente neste navegador. URLs continuam sem query, fragmentos ou credenciais, mas caminhos podem conter informações pessoais. O histórico não representa a fatura da operadora e sua exclusão não é uma renovação da franquia.
 
 Validação: `npm run check`, `npm test` e `npm run test:e2e`. O teste `tests/history-browser.js` usa Chrome com perfil temporário para consultar durante captura ativa, filtrar, exportar, excluir sem alterar a franquia e recuperar uma captura após fechar/reabrir o navegador. Evidências em `artifacts/history-verification.json`, `historico-lista.png`, `historico-detalhes.png` e `historico-lateral.png`.
+
+## Reiniciar a captura (correção 0.10.1)
+
+Durante uma captura, feche e reabra o painel amplo. Encerre a captura e clique em **Iniciar nova sessão**: a última aba monitorada deve ser selecionada, e a sessão anterior deve continuar no histórico. Repita depois de trocar de aba. Se a página tiver sido fechada ou a aba ativa for interna (`chrome://` ou `about:blank`), abra uma página HTTP(S): o botão deve ser habilitado automaticamente. O teste `tests/restart-browser.js` cobre esses cenários em Chrome com perfil temporário.

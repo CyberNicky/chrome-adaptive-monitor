@@ -18,6 +18,9 @@ const labels = {
 };
 let state = { session: null, metrics: {} };
 let targetTab = null;
+let targetSelection = 0;
+let selectionKey = "";
+const requestedId = Number(new URLSearchParams(location.search).get("tabId"));
 let limit = 100;
 let busy = false;
 let connection;
@@ -192,12 +195,27 @@ async function action(callback) {
 }
 
 async function selectTarget() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  targetTab =
-    tab && sanitizeUrl(tab.url)
-      ? { id: tab.id, url: sanitizeUrl(tab.url) }
-      : null;
-  render();
+  const selection = ++targetSelection;
+  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+  let tab = active;
+  // An expanded panel is itself the active tab. Keep the monitored page as
+  // the target, but validate its ID: closed tabs must never enable Start.
+  if (active?.url?.startsWith(chrome.runtime.getURL(""))) {
+    tab = null;
+    for (const id of new Set([state.session?.tabId, targetTab?.id, requestedId])) {
+      if (!Number.isInteger(id) || id <= 0) continue;
+      const candidate = await chrome.tabs.get(id).catch(() => null);
+      if (candidate && sanitizeUrl(candidate.url)) {
+        tab = candidate;
+        break;
+      }
+    }
+  }
+  if (selection !== targetSelection || disposed) return;
+  targetTab = tab && sanitizeUrl(tab.url)
+    ? { id: tab.id, url: sanitizeUrl(tab.url) }
+    : null;
+  renderControls();
 }
 
 function renderControls() {
@@ -218,7 +236,7 @@ function renderControls() {
   $("clear").hidden = Boolean(selectedHistory);
   $("clear").disabled = busy || recording || !session;
   $("target").textContent =
-    (recording ? session.pageUrl : (targetTab?.url ?? session?.pageUrl)) ??
+    (recording ? session.pageUrl : targetTab?.url) ??
     (recording
       ? "Aguardando uma aba HTTP(S)…"
       : "Abra uma página HTTP(S) para começar.");
@@ -341,6 +359,15 @@ function renderHistory() {
   );
 }
 function render() {
+  const key = JSON.stringify([
+    state.session?.id,
+    state.session?.tabId,
+    state.session?.recording,
+  ]);
+  if (key !== selectionKey) {
+    selectionKey = key;
+    void selectTarget();
+  }
   budgetSettings = state.budgetSettings ?? null;
   renderBudgetSettings();
   renderAdaptation();
@@ -592,7 +619,11 @@ function renderRows() {
 for (const type of RESOURCE_TYPES)
   $("filter").append(new Option(labels[type], type));
 $("start").addEventListener("click", () =>
-  action(() => send("START", { tabId: targetTab?.id })),
+  action(async () => {
+    await selectTarget();
+    if (!targetTab) throw new Error("Abra uma página HTTP(S) para começar.");
+    await send("START", { tabId: targetTab.id });
+  }),
 );
 $("stop").addEventListener("click", () => action(() => send("STOP")));
 $("reload").addEventListener("click", () => action(() => send("RELOAD")));
@@ -720,22 +751,14 @@ window.addEventListener("pagehide", () => {
   clearTimeout(reconnect);
   connection?.disconnect();
 });
-chrome.tabs.onActivated.addListener(() => {
-  if (
-    !state.session?.recording &&
-    !new URLSearchParams(location.search).has("tabId")
-  )
-    void selectTarget();
+chrome.tabs.onActivated.addListener(() => void selectTarget());
+chrome.tabs.onUpdated.addListener((_id, changes) => {
+  if (changes.url || changes.status === "complete") void selectTarget();
 });
-const requestedId = Number(new URLSearchParams(location.search).get("tabId"));
+chrome.tabs.onRemoved.addListener(() => void selectTarget());
+chrome.windows.onFocusChanged.addListener(() => void selectTarget());
 await action(async () => {
-  if (requestedId) {
-    const tab = await chrome.tabs.get(requestedId).catch(() => null);
-    targetTab =
-      tab && sanitizeUrl(tab.url)
-        ? { id: tab.id, url: sanitizeUrl(tab.url) }
-        : null;
-  } else await selectTarget();
   await send("GET_STATE");
+  await selectTarget();
 });
 connect();
