@@ -78,7 +78,8 @@ function renderAdaptation() {
     restricted: "Restritivo",
   };
   const mode = a?.mode ?? "normal";
-  const label = a?.error ? "Falha ao aplicar" : names[mode];
+  const label = a?.error ? "Falha ao aplicar"
+    : a?.exhausted ? "Franquia esgotada" : names[mode];
   $("mode-indicator").querySelector("strong").textContent = label;
   $("mode-indicator").dataset.mode = mode;
   $("mode-indicator").setAttribute(

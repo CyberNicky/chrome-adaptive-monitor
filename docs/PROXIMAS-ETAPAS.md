@@ -1,6 +1,6 @@
 # Continuação do desenvolvimento
 
-A versão 0.11.0 acrescenta análise do ritmo e projeção até renovar aos quatro incrementos solicitados: modos por metas internas, ciclo da franquia, alertas e consulta persistente às sessões anteriores. Aguardar os testes do usuário antes de ampliar o escopo.
+A versão 0.12.0 acrescenta bloqueio de conteúdo em saldo zero, mantendo os três modos e a projeção de ritmo da 0.11.0. A versão 0.11.0 acrescenta análise do ritmo e projeção até renovar aos quatro incrementos solicitados: modos por metas internas, ciclo da franquia, alertas e consulta persistente às sessões anteriores. Aguardar os testes do usuário antes de ampliar o escopo.
 
 O roteiro desta entrega está em [TESTE-ETAPA-4.md](TESTE-ETAPA-4.md). As evoluções abaixo continuam propostas para a arquitetura completa.
 

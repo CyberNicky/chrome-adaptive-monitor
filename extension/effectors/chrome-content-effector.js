@@ -1,6 +1,7 @@
 import { installContentGuard } from "./page-content-guard.js";
 
 const WORLD = "navega-content-guard";
+const guardMode = (plan) => plan.exhausted ? "exhausted" : plan.mode;
 const key = (target) => `${target.tabId}:${target.sessionId ?? "root"}`;
 
 export function createContentEffector({ sendCommand, tabs, runtimeId }) {
@@ -36,6 +37,8 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
       );
       target.scriptId = script.identifier;
     }
+    if (mode === "exhausted" && !target.source.sessionId && (!sameMode || refresh))
+      await sendCommand(target.source, "Page.stopLoading");
     const { frameTree } = await sendCommand(target.source, "Page.getFrameTree");
     async function applyFrame(tree, root = false) {
       try {
@@ -101,7 +104,7 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
       await sendCommand(source, "Page.enable");
       await updateTarget(
         target,
-        source.tabId === desired.tabId ? desired.mode : "normal",
+        source.tabId === desired.tabId ? guardMode(desired) : "normal",
       );
     },
     forgetTarget(source) {
@@ -112,7 +115,7 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
       if (target)
         await updateTarget(
           target,
-          source.tabId === desired.tabId ? desired.mode : "normal",
+          source.tabId === desired.tabId ? guardMode(desired) : "normal",
           true,
         );
     },
@@ -143,7 +146,7 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
           }
           await updateTarget(
             target,
-            target.source.tabId === blockedTab ? plan.mode : "normal",
+            target.source.tabId === blockedTab ? guardMode(plan) : "normal",
           );
         }
       } finally {
@@ -152,6 +155,7 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
       return {
         playbackBlocked: blockedTab !== null,
         imagesHidden: plan.mode === "restricted" && blockedTab !== null,
+        contentHidden: Boolean(plan.exhausted && blockedTab !== null),
       };
     },
     forgetTab(tabId) {

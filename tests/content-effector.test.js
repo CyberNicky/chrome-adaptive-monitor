@@ -25,7 +25,7 @@ function fixture(muted = false) {
       },
     },
     async sendCommand(source, method, params) {
-      calls.push({ method, params });
+      calls.push({ source, method, params });
       if (fail && method === "Page.removeScriptToEvaluateOnNewDocument")
         throw new Error("desconectado");
       if (method === "Page.getFrameTree")
@@ -93,4 +93,21 @@ test("ao reiniciar recupera silenciamento próprio sem alterar o do usuário", a
   tab.mutedInfo = { muted: true, reason: "user" };
   await controller.recover();
   assert.equal(tab.mutedInfo.muted, true);
+});
+
+
+test("saldo zero interrompe o carregamento apenas no alvo principal e oculta também frames filhos", async () => {
+  const { controller, calls } = fixture();
+  await controller.registerTarget({ tabId: 7 });
+  await controller.registerTarget({ tabId: 7, sessionId: "iframe" }, "iframe");
+  const result = await controller.apply({ mode: "restricted", exhausted: true, tabId: 7 });
+  assert.equal(result.contentHidden, true);
+  const stopCalls = calls.filter((call) => call.method === "Page.stopLoading");
+  assert.equal(stopCalls.length, 1);
+  assert.equal(stopCalls[0].source.sessionId, undefined);
+  assert.ok(calls.some((call) => call.source?.sessionId === "iframe" &&
+    call.method === "Runtime.evaluate" && call.params.expression.endsWith('("exhausted")')));
+  await controller.apply({ mode: "restricted", exhausted: true, tabId: 7 });
+  assert.equal(calls.filter((call) => call.method === "Page.stopLoading").length, 1);
+  assert.equal((await controller.apply({ mode: "normal", tabId: null })).contentHidden, false);
 });

@@ -26,7 +26,7 @@ const capture = (date = "2026-11-17", bytes = 720000) => ({
 });
 const mode = (usage, session) =>
   planAdaptation(
-    analyzeBudget(settings(), usage.consumedBytes, usage.cycle),
+    analyzeBudget(settings(), usage.consumedBytes, usage.cycle, usage.updatedAt),
     session,
   ).mode;
 

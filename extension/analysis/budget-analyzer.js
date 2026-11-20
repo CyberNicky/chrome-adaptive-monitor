@@ -35,6 +35,7 @@ export function analyzeBudget(
     totalBytes,
     consumedBytes: consumed,
     remainingBytes: Math.max(0, totalBytes - consumed),
+    exhausted: totalBytes > 0 && consumed >= totalBytes,
     usedPercent: totalBytes ? (consumed / totalBytes) * 100 : 0,
     economyBytes,
     restrictedBytes,

@@ -245,6 +245,7 @@ async function publish() {
         budgetUsage?.cycle,
       ),
       mode: adaptation?.mode ?? "normal",
+      exhausted: Boolean(adaptation?.exhausted),
       decisionSource: adaptation?.decisionSource,
       reason: adaptation?.reason,
     },

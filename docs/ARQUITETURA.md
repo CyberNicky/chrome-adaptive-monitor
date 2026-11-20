@@ -1,6 +1,6 @@
 # Da arquitetura à primeira implementação
 
-A entrega 0.11.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas e avalia o ritmo em relação ao tempo restante; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além do cache da captura ativa e do histórico local de sessões. Alertas persistentes e consulta ao histórico de sessões anteriores estão disponíveis.
+A entrega 0.12.0 implementa monitoramento, calendário da franquia e adaptação por consumo: a Análise compara os bytes acumulados do ciclo com as metas internas e avalia o ritmo em relação ao tempo restante; o Planejamento escolhe Normal/Econômico/Restritivo; a Execução traduz o plano; o Efetor aplica regras declarativas na aba monitorada. A base de Conhecimento mantém o calendário, os parâmetros e o contador do ciclo persistentes, além do cache da captura ativa e do histórico local de sessões. Alertas persistentes e consulta ao histórico de sessões anteriores estão disponíveis.
 
 ## Fluxo implementado
 
@@ -78,7 +78,7 @@ A interface apresenta esse resultado em um ranking global, separado dos filtros 
 | Traduzir regras                               | `extension/execution/rule-translator.js`         | Gera regras para mídia/imagem e caminhos comuns de arquivos via Fetch/XHR              |
 | Emitir/aplicar comandos                       | `extension/effectors/chrome-request-effector.js` | Substitui atomicamente apenas as regras próprias, com `tabIds`, e confirma o resultado |
 
-As regras de sessão usam IDs reservados 9001 a 9004 e nunca bloqueiam tipos HTML, CSS, scripts ou fontes. Ao trocar de aba, o controlador remove as regras do alvo anterior antes de instalar as do novo. Encerrar, desativar a economia ou voltar a Normal remove os bloqueios. A fila do controlador serializa comandos e atualizações, evitando concorrência entre troca de aba e aplicação das regras.
+As regras de sessão usam IDs reservados 9001 a 9005. As regras 9001–9004 preservam HTML, CSS, scripts e fontes enquanto houver saldo. Desde 0.12.0, a regra 9005 bloqueia todos os tipos de novas requisições quando a franquia estimada é esgotada. Ao trocar de aba, o controlador remove as regras do alvo anterior antes de instalar as do novo. Encerrar, desativar a economia ou voltar a Normal remove os bloqueios. A fila do controlador serializa comandos e atualizações, evitando concorrência entre troca de aba e aplicação das regras.
 
 A interface separa o modo confirmado do modo pretendido se a API falhar. A confirmação da API não garante cobertura de todos os players: os testes verificam também que recursos conhecidos não chegaram ao servidor. A classificação por tipo e caminho não cobre toda mídia servida por Fetch/XHR, service workers ou URLs opacas. Dados já recebidos não são recuperáveis; o controle complementar da versão 0.5.0 pausa a reprodução e oculta imagens em elementos suportados.
 
@@ -156,3 +156,12 @@ O controlador reavalia durante publicações de captura, consultas, inicializaç
 O painel apresenta ritmo, saldo diário e projeção. O cartão da página acrescenta o motivo quando a decisão vem do ritmo, mantendo posição, tamanho e cores. Não acrescenta notificações nativas por projeção; os alertas persistentes de percentual seguem os marcos anteriores. O histórico guarda o contexto da análise no snapshot já existente.
 
 A média usa todo o tempo do ciclo e somente consumo observado, inclusive se a extensão foi instalada no meio do período. Períodos sem captura não são reconstruídos. Trata-se de projeção experimental do consumo observado, sem garantia de cobertura da franquia real. Validar os parâmetros em cenários controlados continua necessário. Testes e roteiro em [TESTE-RITMO.md](TESTE-RITMO.md).
+
+
+## Saldo zero no Restritivo (0.12.0)
+
+A condição `exhausted` distingue a necessidade de interromper o carregamento quando consumo observado >= franquia total, sem criar um quarto modo. A Análise identifica saldo zero; o Planejamento só ativa essa atuação com sessão/alvo válidos e adaptação automática habilitada, mantendo o modo Restritivo. A Execução troca atomicamente as regras anteriores pela regra 9005, com todos os tipos (incluindo `main_frame`) e URLs HTTP(S)/WS(S), limitada ao `tabId` monitorado.
+
+O Efetor chama `Page.stopLoading` na entrada desse estado e usa o guard em mundo isolado para ocultar o corpo da página e apresentar uma tela local de esgotamento no frame principal. A explicação usa apenas texto e CSS locais. O diálogo impede dispensar o bloqueio visual com Escape; não altera os arquivos do servidor. A restauração devolve a visibilidade e o silenciamento que a extensão alterou e remove a regra de saldo zero. O painel e os documentos da própria extensão continuam acessíveis. Os valores persistidos/histórico não são apagados.
+
+É uma ampliação da atuação já prevista em Execução/Efetor. Dados já baixados não são recuperados; ocultar conteúdo armazenado não economiza os bytes já transferidos. As regras impedem novas requisições no alvo, mas não garantem zero tráfego residual nem substituem o controle de franquia da operadora. A captura e a economia automática precisam permanecer ativadas. Testes e roteiro em [TESTE-SALDO-ZERO.md](TESTE-SALDO-ZERO.md).

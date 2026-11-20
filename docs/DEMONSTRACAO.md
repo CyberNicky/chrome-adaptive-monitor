@@ -22,15 +22,15 @@ Abra a extensão no ícone fixado. Comece com o DevTools da aba de teste fechado
 
 ## Respostas curtas para dúvidas
 
-**Já é autoadaptativa?** Ainda não. Esta entrega valida a observação; a análise e a atuação serão os próximos incrementos.
+**Já é autoadaptativa?** Sim, como protótipo: monitora, analisa orçamento/ritmo, planeja o modo e aplica os bloqueios. Prioridades e exceções ainda são futuras.
 
 **Mede exatamente o pacote de internet?** Não. Os bytes são informados pelo Chrome para as respostas observadas. Cache, uploads, service workers, outros aplicativos e overhead de rede tornam isso uma estimativa do consumo, não uma medição da operadora.
 
-**O sistema gerenciado é o HTML?** É o carregamento de recursos no Chrome. No projeto completo, o efetor vai alterar regras de filtragem das próximas requisições, sem precisar modificar o HTML/DOM.
+**O sistema gerenciado é o HTML?** É o carregamento de recursos no Chrome. O efetor aplica regras de rede e controla temporariamente reprodução e visibilidade no DOM; em saldo zero, oculta o conteúdo e bloqueia novos carregamentos.
 
 **Por que aparecem recursos depois de carregar a página?** Páginas também carregam conteúdo em resposta a interações, scripts e lazy loading. Os botões da demo mostram esse comportamento.
 
-**As imagens já baixadas serão economizadas depois?** Não. Futuras regras atuarão em novas requisições. Esta versão não bloqueia recursos.
+**As imagens já baixadas serão economizadas depois?** Não. Os bytes recebidos não são recuperados. As regras bloqueiam novos carregamentos e o controle visual oculta o conteúdo conforme a política.
 
 ## Se algo não aparecer
 
@@ -40,3 +40,8 @@ Abra a extensão no ícone fixado. Comece com o DevTools da aba de teste fechado
 - Porta ocupada: execute `PORT=4174 npm run demo` no macOS/Linux e abra a porta indicada.
 - Alterações na extensão: use **Atualizar/Recarregar** no cartão de `chrome://extensions` e reabra o painel. Atualizar encerra a conexão de captura anterior.
 - O limite de registros foi atingido: exporte e inicie outra sessão.
+
+
+## Demonstrar saldo zero (0.12.0)
+
+Com 1 MB e ciclo iniciado hoje, mantenha captura/economia ativas e use **Consumir 100 kB de teste** até atingir 100%. A página deve ficar oculta por **Franquia estimada esgotada**; HTML, CSS, scripts e APIs também passam a ser bloqueados. Abra o painel da extensão e mostre saldo zero. Aumente a franquia para 10 MB e recarregue para demonstrar a liberação sem perder o histórico. Roteiro detalhado em [TESTE-SALDO-ZERO.md](TESTE-SALDO-ZERO.md).

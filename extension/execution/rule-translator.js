@@ -1,4 +1,9 @@
-export const ADAPTATION_RULE_IDS = [9001, 9002, 9003, 9004];
+export const ADAPTATION_RULE_IDS = [9001, 9002, 9003, 9004, 9005];
+export const ALL_RESOURCE_TYPES = [
+  "main_frame", "sub_frame", "stylesheet", "script", "image", "font",
+  "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket",
+  "webtransport", "webbundle", "other",
+];
 
 export function translatePlan(plan) {
   if (plan.mode === "normal" || plan.tabId === null) return [];
@@ -14,6 +19,13 @@ export function translatePlan(plan) {
     action: { type: "block" },
     condition: { tabIds: [plan.tabId], ...condition },
   });
+  // Explicitly include main_frame: omitting resourceTypes does not block it.
+  // The URL filter preserves extension pages and other local browser surfaces.
+  if (plan.exhausted)
+    return [rule(9005, {
+      regexFilter: "^(https?|wss?)://",
+      resourceTypes: ALL_RESOURCE_TYPES,
+    })];
   const rules = [
     rule(9001, { resourceTypes: ["media"] }),
     // Covers common media URLs fetched through Fetch/XHR without blocking generic APIs.

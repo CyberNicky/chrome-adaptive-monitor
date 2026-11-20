@@ -21,6 +21,7 @@ export function planAdaptation(analysis, session) {
   return {
     mode,
     tabId: active ? session.tabId : null,
+    exhausted: Boolean(active && analysis.enabled && analysis.exhausted),
     reason: !analysis.configured
       ? "Configure o orçamento para ativar a economia automática."
       : analysis.cycle?.active === false
@@ -31,6 +32,8 @@ export function planAdaptation(analysis, session) {
             ? "Inicie a captura para ativar a adaptação."
             : !active
               ? "Aguardando uma aba HTTP(S)."
+              : analysis.exhausted
+                ? "Franquia estimada esgotada: conteúdo da página ocultado e novos carregamentos bloqueados, incluindo texto, HTML, CSS, scripts e APIs."
               : analysis.decisionSource === "pace"
                 ? describePace(analysis, mode)
                 : mode === "restricted"

@@ -68,6 +68,7 @@ export function createPageAlertEffector({ sendCommand }) {
         economy: "Econômico",
         restricted: "Restritivo",
       }[mode];
+      const displayMode = analysis.exhausted ? "Franquia esgotada" : modeLabel;
       const percentLabel = analysis.usedPercent.toLocaleString("pt-BR", {
         maximumFractionDigits: 1,
       });
@@ -94,7 +95,7 @@ export function createPageAlertEffector({ sendCommand }) {
           : (alert?.normalVisible ?? true),
         token: alert?.token ?? "monitoring",
         mode,
-        modeLabel,
+        modeLabel: displayMode,
         percentLabel: analysis.usedPercent.toLocaleString("pt-BR", {
           maximumFractionDigits: 1,
         }),
