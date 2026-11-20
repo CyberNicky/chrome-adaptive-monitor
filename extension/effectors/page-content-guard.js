@@ -1,6 +1,8 @@
 // Runs in a dedicated isolated world. It does not patch the site's JavaScript.
 export function installContentGuard(mode) {
-  const key = "__navegaContentGuardV1";
+  // Restore the previous implementation if this page survived an update.
+  globalThis.__navegaContentGuardV1?.setMode("normal");
+  const key = "__navegaContentGuardV2";
   if (globalThis[key]) {
     globalThis[key].setMode(mode);
     return;
@@ -10,8 +12,6 @@ export function installContentGuard(mode) {
   const media = new Map();
   const hidden = new Map();
   const roots = new Map();
-  let exhaustionScreen = null;
-  const coveredBodies = new Set();
   const pause = HTMLMediaElement.prototype.pause;
   let current = mode;
   let expiresAt = Date.now() + 6000;
@@ -41,64 +41,6 @@ export function installContentGuard(mode) {
     }
     hidden.delete(element);
   };
-  function clearExhaustionScreen() {
-    exhaustionScreen?.remove();
-    exhaustionScreen = null;
-    for (const body of coveredBodies) restore(body);
-    coveredBodies.clear();
-  }
-  function showExhaustionScreen() {
-    if (document.body) {
-      coveredBodies.add(document.body);
-      hide(document.body);
-    }
-    // The main frame owns the explanation; child frames only hide their content.
-    if (window !== window.top || !document.documentElement) return;
-    if (!exhaustionScreen) {
-      exhaustionScreen = document.createElement("navega-budget-exhausted");
-      for (const [name, value] of Object.entries({
-        all: "initial", position: "fixed", inset: "0", display: "block",
-        visibility: "visible", "z-index": "2147483647",
-        background: "#fff7f3", "pointer-events": "auto",
-      })) exhaustionScreen.style.setProperty(name, value, "important");
-      const root = exhaustionScreen.attachShadow({ mode: "open" });
-      const style = new CSSStyleSheet();
-      style.replaceSync(`
-        :host{color-scheme:light}
-        dialog{box-sizing:border-box;position:fixed;inset:0;margin:0;
-          width:100vw;height:100dvh;max-width:none;max-height:none;border:0;outline:0;
-          padding:32px;background:#fff7f3;color:#632d21;overflow:auto;
-          font:16px/1.6 system-ui,sans-serif}
-        dialog::backdrop{background:#fff7f3}
-        section{max-width:560px;margin:15vh auto}
-        small{font-weight:750;letter-spacing:.08em}
-        h1{font-size:clamp(28px,6vw,40px);line-height:1.2;margin:20px 0}
-        p{margin:16px 0}
-      `);
-      root.adoptedStyleSheets = [style];
-      const dialog = document.createElement("dialog");
-      dialog.setAttribute("aria-labelledby", "exhausted-title");
-      dialog.addEventListener("cancel", (event) => event.preventDefault());
-      const section = document.createElement("section");
-      const brand = document.createElement("small");
-      brand.textContent = "NAVEGA · SALDO ESTIMADO ZERO";
-      const title = document.createElement("h1");
-      title.id = "exhausted-title";
-      title.textContent = "Franquia estimada esgotada";
-      const message = document.createElement("p");
-      message.textContent = "O conteúdo desta página foi ocultado e novos carregamentos foram bloqueados para preservar seus dados, incluindo texto, imagens, áudio e vídeo.";
-      const guidance = document.createElement("p");
-      guidance.textContent = "Abra o painel do Navega pelo ícone da extensão para consultar o consumo e a renovação ou ajustar sua franquia. Esta tela é gerada localmente pela extensão.";
-      section.append(brand, title, message, guidance);
-      dialog.append(section);
-      root.append(dialog);
-      document.exitFullscreen?.().catch(() => {});
-    }
-    if (!exhaustionScreen.isConnected)
-      document.documentElement.append(exhaustionScreen);
-    const dialog = exhaustionScreen.shadowRoot.querySelector("dialog");
-    if (!dialog.open) dialog.showModal();
-  }
   const blockMedia = (element) => {
     if (!(element instanceof HTMLMediaElement)) return;
     if (!media.has(element)) media.set(element, { muted: element.muted });
@@ -128,11 +70,10 @@ export function installContentGuard(mode) {
     scanning = true;
     try {
       watch(document);
-      if (current === "exhausted") showExhaustionScreen();
       for (const root of roots.keys()) {
         for (const element of root.querySelectorAll("audio, video"))
           blockMedia(element);
-        if (current === "restricted")
+        if (current === "restricted" || current === "exhausted")
           for (const element of root.querySelectorAll(
             'img, picture, svg, input[type="image"]',
           ))
@@ -170,7 +111,6 @@ export function installContentGuard(mode) {
   globalThis[key] = {
     setMode(next) {
       current = next;
-      if (next !== "exhausted") clearExhaustionScreen();
       expiresAt = Date.now() + 6000;
       if (next === "normal") {
         clearInterval(timer);

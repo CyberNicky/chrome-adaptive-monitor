@@ -33,7 +33,7 @@ export function planAdaptation(analysis, session) {
             : !active
               ? "Aguardando uma aba HTTP(S)."
               : analysis.exhausted
-                ? "Franquia estimada esgotada: conteúdo da página ocultado e novos carregamentos bloqueados, incluindo texto, HTML, CSS, scripts e APIs."
+                ? "Franquia estimada esgotada: novos carregamentos bloqueados, incluindo texto, HTML, CSS, scripts e APIs. O texto já recebido permanece disponível."
               : analysis.decisionSource === "pace"
                 ? describePace(analysis, mode)
                 : mode === "restricted"

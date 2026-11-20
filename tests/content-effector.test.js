@@ -96,12 +96,12 @@ test("ao reiniciar recupera silenciamento próprio sem alterar o do usuário", a
 });
 
 
-test("saldo zero interrompe o carregamento apenas no alvo principal e oculta também frames filhos", async () => {
+test("saldo zero interrompe novos carregamentos sem ocultar o conteúdo textual dos frames", async () => {
   const { controller, calls } = fixture();
   await controller.registerTarget({ tabId: 7 });
   await controller.registerTarget({ tabId: 7, sessionId: "iframe" }, "iframe");
   const result = await controller.apply({ mode: "restricted", exhausted: true, tabId: 7 });
-  assert.equal(result.contentHidden, true);
+  assert.equal(result.contentHidden, false);
   const stopCalls = calls.filter((call) => call.method === "Page.stopLoading");
   assert.equal(stopCalls.length, 1);
   assert.equal(stopCalls[0].source.sessionId, undefined);

@@ -69,23 +69,16 @@ try {
   await waitState((a) => a.mode === "restricted" && !a.exhausted, "restritivo com saldo");
   assert.equal(await page.locator("body").isVisible(), true);
   assert.equal(await fetchProbe("/api/data?probe=before-exhaustion"), 200);
-  // The local screen must remain styled on sites forbidding inline styles.
-  await page.evaluate(() => {
-    const policy = document.createElement("meta");
-    policy.httpEquiv = "Content-Security-Policy";
-    policy.content = "style-src 'none'";
-    document.head.append(policy);
-  });
   await consumeTo(1050000);
-  await waitState((a) => a.exhausted && a.contentHidden, "saldo zero bloqueia tudo");
+  await waitState((a) => a.exhausted && !a.contentHidden, "saldo zero bloqueia novos carregamentos");
   const exhausted = await state();
-  await page.getByRole("heading", { name: "Franquia estimada esgotada", exact: true }).waitFor();
-  assert.equal(await page.locator("body").isVisible(), false);
-  assert.equal(await page.locator("navega-budget-exhausted dialog").evaluate((d) =>
-    getComputedStyle(d).backgroundColor), "rgb(255, 247, 243)");
+  assert.equal(await page.locator("body").isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: "Uma navegação que você pode observar." }).isVisible(), true);
+  assert.equal(await page.locator("navega-budget-exhausted").count(), 0);
+  assert.equal(page.url(), `${base}/`);
   assert.equal(await panel.locator("#mode-indicator strong").innerText(), "Franquia esgotada");
-  await page.keyboard.press("Escape");
-  assert.equal(await page.locator("navega-budget-exhausted dialog").isVisible(), true);
+  await until(async () =>
+    (await page.locator("navega-consumption-alert").getAttribute("data-mode")) === "restricted", "aviso continua no canto da página");
   for (const path of ["/api/data", "/style.css", "/app.js", "/image.svg", "/video.webm", "/test.woff2"]) {
     assert.equal(await fetchProbe(`${path}?probe=zero-balance`), "blocked");
   }
@@ -100,6 +93,7 @@ try {
         const element = document.createElement(kind === "stylesheet" ? "link" : kind);
         const timer = setTimeout(() => resolve("timeout"), 3000);
         const finish = (value) => { clearTimeout(timer); resolve(value); };
+        if (kind === "iframe") element.hidden = true;
         element.onload = () => finish("loaded");
         element.onerror = () => finish("blocked");
         if (kind === "stylesheet") { element.rel = "stylesheet"; element.href = path; }
@@ -114,7 +108,7 @@ try {
   await mkdir("artifacts", { recursive: true });
   await page.screenshot({ path: "artifacts/franquia-esgotada.png" });
   await page.setViewportSize({ width: 390, height: 844 });
-  assert.equal(await page.locator("navega-budget-exhausted dialog").evaluate((d) => d.scrollWidth > d.clientWidth), false);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.screenshot({ path: "artifacts/franquia-esgotada-mobile.png" });
   await panel.reload();
   await waitState((a) => a.exhausted, "reabrir não libera quota");
@@ -127,7 +121,7 @@ try {
   await page.goto(`${base}/?probe=exhausted-navigation`).catch(() => {});
   assert.equal(received.some((url) => url.includes("exhausted-navigation")), false);
   await until(async () => (await state()).adaptation.exhausted, "navegação continua protegida");
-  await page.getByRole("heading", { name: "Franquia estimada esgotada", exact: true }).waitFor();
+  assert.equal(await page.locator("navega-budget-exhausted").count(), 0);
   await configure(10);
   await waitState((a) => a.mode === "normal" && !a.exhausted, "aumentar franquia libera rede");
   await page.goto(base);
@@ -155,9 +149,9 @@ try {
   await writeFile("artifacts/exhaustion-verification.json", JSON.stringify({
     result: "passed", checkedAt: new Date().toISOString(),
     browser: context.browser().version(), consumedBytes: exhausted.adaptation.consumedBytes,
-    checked: "Texto/API/CSS/JS/fontes/mídia bloqueados no servidor, conteúdo oculto, navegação principal, Escape, painel, sessões e restauração.",
+    checked: "Texto/API/CSS/JS/fontes/mídia bloqueados no servidor, texto existente visível sem modal ou redirecionamento, navegação principal, painel, sessões e restauração.",
   }, null, 2));
-  console.log("Saldo zero aprovado em Chrome real: conteúdo oculto, novas requisições e navegação bloqueadas, controles acessíveis e restauração.");
+  console.log("Saldo zero aprovado em Chrome real: texto existente preservado sem tela de bloqueio, novas requisições e navegação bloqueadas, controles acessíveis e restauração.");
 } catch (error) {
   await mkdir("artifacts", { recursive: true });
   await writeFile("artifacts/exhaustion-failure.json", JSON.stringify({ error: error.message, state: lastState, errors }, null, 2));

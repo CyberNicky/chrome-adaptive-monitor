@@ -26,7 +26,7 @@ Abra a extensão no ícone fixado. Comece com o DevTools da aba de teste fechado
 
 **Mede exatamente o pacote de internet?** Não. Os bytes são informados pelo Chrome para as respostas observadas. Cache, uploads, service workers, outros aplicativos e overhead de rede tornam isso uma estimativa do consumo, não uma medição da operadora.
 
-**O sistema gerenciado é o HTML?** É o carregamento de recursos no Chrome. O efetor aplica regras de rede e controla temporariamente reprodução e visibilidade no DOM; em saldo zero, oculta o conteúdo e bloqueia novos carregamentos.
+**O sistema gerenciado é o HTML?** É o carregamento de recursos no Chrome. O efetor aplica regras de rede e controla temporariamente reprodução e visibilidade no DOM; em saldo zero, bloqueia novos carregamentos, inclusive de texto, preservando o texto já recebido.
 
 **Por que aparecem recursos depois de carregar a página?** Páginas também carregam conteúdo em resposta a interações, scripts e lazy loading. Os botões da demo mostram esse comportamento.
 
@@ -42,6 +42,6 @@ Abra a extensão no ícone fixado. Comece com o DevTools da aba de teste fechado
 - O limite de registros foi atingido: exporte e inicie outra sessão.
 
 
-## Demonstrar saldo zero (0.12.0)
+## Demonstrar saldo zero (0.12.1)
 
-Com 1 MB e ciclo iniciado hoje, mantenha captura/economia ativas e use **Consumir 100 kB de teste** até atingir 100%. A página deve ficar oculta por **Franquia estimada esgotada**; HTML, CSS, scripts e APIs também passam a ser bloqueados. Abra o painel da extensão e mostre saldo zero. Aumente a franquia para 10 MB e recarregue para demonstrar a liberação sem perder o histórico. Roteiro detalhado em [TESTE-SALDO-ZERO.md](TESTE-SALDO-ZERO.md).
+Com 1 MB e ciclo iniciado hoje, mantenha captura/economia ativas e use **Consumir 100 kB de teste** até atingir 100%. A página deve continuar visível sem redirecionamento ou modal, mas novos HTML, CSS, scripts e APIs também passam a ser bloqueados. O texto já recebido continua disponível. Abra o painel da extensão e mostre saldo zero. Aumente a franquia para 10 MB e recarregue para demonstrar a liberação sem perder o histórico. Roteiro detalhado em [TESTE-SALDO-ZERO.md](TESTE-SALDO-ZERO.md).

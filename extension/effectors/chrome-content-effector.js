@@ -155,7 +155,7 @@ export function createContentEffector({ sendCommand, tabs, runtimeId }) {
       return {
         playbackBlocked: blockedTab !== null,
         imagesHidden: plan.mode === "restricted" && blockedTab !== null,
-        contentHidden: Boolean(plan.exhausted && blockedTab !== null),
+        contentHidden: false,
       };
     },
     forgetTab(tabId) {
